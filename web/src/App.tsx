@@ -12,12 +12,29 @@ import {
   Clock,
   Sparkles,
   RefreshCw,
-  StopCircle
+  StopCircle,
+  GitBranch,
+  Bot,
+  Cpu,
+  FileDiff,
+  ChevronDown,
+  FolderGit2
 } from 'lucide-react'
 import { api, getApiBase } from './api'
-import type { Session, Message, PermissionRequest, FileItem } from './types'
+import type { Session, Message, PermissionRequest, FileItem, Project, Provider, Agent, DiffFile } from './types'
 
 export default function App() {
+  // State
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [providers, setProviders] = useState<Provider[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<string>('build')
+  const [selectedModel, setSelectedModel] = useState<{ providerID: string; modelID: string }>({
+    providerID: '',
+    modelID: ''
+  })
+
   const [sessions, setSessions] = useState<Session[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -27,15 +44,43 @@ export default function App() {
   const [files, setFiles] = useState<FileItem[]>([])
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'chat' | 'files' | 'tools'>('chat')
+  const [diffFiles, setDiffFiles] = useState<DiffFile[]>([])
+  const [activeTab, setActiveTab] = useState<'chat' | 'files' | 'diff' | 'tools'>('chat')
   const [serverUrl] = useState(getApiBase())
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // 1. Load Sessions
+  // 1. Initial Load: Projects, Providers, Agents
+  const loadInitialData = async () => {
+    try {
+      const [projList, provData, agentList] = await Promise.all([
+        api.getProjects(),
+        api.getConfigProviders(),
+        api.getAgents()
+      ])
+
+      setProjects(projList)
+      if (projList.length > 0) {
+        setSelectedProject(projList[0])
+      }
+
+      setProviders(provData.providers || [])
+      if (provData.providers && provData.providers.length > 0) {
+        const p = provData.providers[0]
+        const m = Object.keys(p.models || {})[0] || ''
+        setSelectedModel({ providerID: p.id, modelID: m })
+      }
+
+      setAgents(agentList)
+    } catch (e) {
+      console.error('Init error:', e)
+    }
+  }
+
+  // 2. Load Sessions
   const refreshSessions = async () => {
     try {
-      const data = await api.getSessions()
+      const data = await api.getSessions(selectedProject?.worktree)
       setSessions(data)
       if (!currentSessionId && data.length > 0) {
         setCurrentSessionId(data[0].id)
@@ -45,7 +90,7 @@ export default function App() {
     }
   }
 
-  // 2. Load Messages for current session
+  // 3. Load Messages
   const refreshMessages = async (sessionId: string) => {
     try {
       const data = await api.getMessages(sessionId)
@@ -55,7 +100,17 @@ export default function App() {
     }
   }
 
-  // 3. Load Permissions / Approvals
+  // 4. Load Diff
+  const refreshDiff = async (sessionId: string) => {
+    try {
+      const diffs = await api.getSessionDiff(sessionId)
+      setDiffFiles(diffs)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // 5. Load Permissions & Files
   const refreshPermissions = async () => {
     try {
       const perms = await api.getPermissions()
@@ -65,7 +120,6 @@ export default function App() {
     }
   }
 
-  // 4. Load Files
   const refreshFiles = async () => {
     try {
       const list = await api.listFiles('.')
@@ -76,14 +130,14 @@ export default function App() {
   }
 
   useEffect(() => {
-    refreshSessions()
+    loadInitialData()
     refreshPermissions()
     refreshFiles()
 
-    // Subscribe SSE Events
-    const unsubscribe = api.subscribeEvents((_event) => {
+    const unsubscribe = api.subscribeEvents(() => {
       if (currentSessionId) {
         refreshMessages(currentSessionId)
+        refreshDiff(currentSessionId)
       }
       refreshPermissions()
     })
@@ -99,11 +153,16 @@ export default function App() {
       unsubscribe()
       clearInterval(interval)
     }
-  }, [currentSessionId])
+  }, [])
+
+  useEffect(() => {
+    refreshSessions()
+  }, [selectedProject])
 
   useEffect(() => {
     if (currentSessionId) {
       refreshMessages(currentSessionId)
+      refreshDiff(currentSessionId)
     }
   }, [currentSessionId])
 
@@ -114,7 +173,10 @@ export default function App() {
   // Handlers
   const handleCreateSession = async () => {
     try {
-      const newSession = await api.createSession('Session ' + (sessions.length + 1))
+      const newSession = await api.createSession({
+        title: 'Session ' + (sessions.length + 1),
+        directory: selectedProject?.worktree
+      })
       await refreshSessions()
       setCurrentSessionId(newSession.id)
     } catch (e) {
@@ -143,7 +205,11 @@ export default function App() {
     setIsLoading(true)
 
     try {
-      await api.sendPrompt(currentSessionId, promptText)
+      await api.sendPrompt(currentSessionId, promptText, {
+        providerID: selectedModel.providerID,
+        modelID: selectedModel.modelID,
+        agent: selectedAgent
+      })
       await refreshMessages(currentSessionId)
     } catch (err) {
       alert('Gửi prompt thất bại!')
@@ -179,34 +245,62 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen bg-[#0d1117] text-[#c9d1d9] font-sans antialiased overflow-hidden select-none">
-      {/* SIDEBAR */}
-      <div className="w-72 bg-[#161b22] border-r border-[#30363d] flex flex-col justify-between">
-        {/* Header Branding */}
+      {/* LEFT SIDEBAR: PROJECT PICKER & SESSIONS */}
+      <div className="w-80 bg-[#161b22] border-r border-[#30363d] flex flex-col justify-between">
         <div>
+          {/* Header Branding */}
           <div className="p-4 border-b border-[#30363d] flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
                 <h1 className="font-bold text-sm text-white tracking-wide">OpenCode WebUI</h1>
-                <span className="text-[11px] text-gray-400">Custom Pro Dashboard</span>
+                <span className="text-[11px] text-gray-400">Pro Developer Studio</span>
               </div>
             </div>
             <button
-              onClick={refreshSessions}
-              className="p-1.5 hover:bg-[#21262d] rounded-md text-gray-400 hover:text-white transition-colors"
-              title="Làm mới"
+              onClick={() => {
+                refreshSessions()
+                loadInitialData()
+              }}
+              className="p-1.5 hover:bg-[#21262d] rounded-md text-gray-400 hover:text-white transition"
+              title="Làm mới toàn bộ"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* PROJECT SELECTOR DROPDOWN */}
+          <div className="p-3 border-b border-[#30363d] bg-[#0d1117]/30">
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5 flex items-center space-x-1">
+              <FolderGit2 className="w-3.5 h-3.5 text-blue-400" />
+              <span>Dự án (Project)</span>
+            </label>
+            <div className="relative">
+              <select
+                value={selectedProject?.id || ''}
+                onChange={(e) => {
+                  const p = projects.find((x) => x.id === e.target.value)
+                  if (p) setSelectedProject(p)
+                }}
+                className="w-full bg-[#161b22] border border-[#30363d] rounded-lg py-2 px-3 text-xs text-white appearance-none focus:outline-none focus:border-blue-500 pr-8"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || (p.worktree === '/' ? 'Global Workspace' : p.worktree)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            </div>
           </div>
 
           {/* New Chat Button */}
           <div className="p-3">
             <button
               onClick={handleCreateSession}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition shadow"
+              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition shadow"
             >
               <Plus className="w-4 h-4" />
               <span>Cuộc trò chuyện mới</span>
@@ -214,48 +308,52 @@ export default function App() {
           </div>
 
           {/* Session List */}
-          <div className="px-2 py-1 overflow-y-auto max-h-[calc(100vh-230px)] space-y-1">
+          <div className="px-2 py-1 overflow-y-auto max-h-[calc(100vh-320px)] space-y-1">
             <div className="px-2 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               Lịch sử phiên ({sessions.length})
             </div>
-            {sessions.map((s) => {
-              const active = s.id === currentSessionId
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => setCurrentSessionId(s.id)}
-                  className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm transition-all ${
-                    active
-                      ? 'bg-[#21262d] text-white font-medium border border-blue-500/30'
-                      : 'hover:bg-[#21262d]/60 text-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2.5 truncate">
-                    <MessageSquare className={`w-4 h-4 ${active ? 'text-blue-400' : 'text-gray-400'}`} />
-                    <span className="truncate">{s.title || s.slug || 'Session'}</span>
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteSession(e, s.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded transition"
+            {sessions.length === 0 ? (
+              <div className="p-4 text-center text-xs text-gray-500">Chưa có phiên làm việc nào</div>
+            ) : (
+              sessions.map((s) => {
+                const active = s.id === currentSessionId
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => setCurrentSessionId(s.id)}
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-xs transition-all ${
+                      active
+                        ? 'bg-[#21262d] text-white font-medium border border-blue-500/40'
+                        : 'hover:bg-[#21262d]/60 text-gray-300'
+                    }`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )
-            })}
+                    <div className="flex items-center space-x-2.5 truncate">
+                      <MessageSquare className={`w-4 h-4 ${active ? 'text-blue-400' : 'text-gray-400'}`} />
+                      <span className="truncate">{s.title || s.slug || 'Session'}</span>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteSession(e, s.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
 
         {/* Footer Info */}
         <div className="p-3 border-t border-[#30363d] bg-[#0d1117]/50 text-xs text-gray-400 flex flex-col space-y-1">
           <div className="flex items-center justify-between">
-            <span>Core Server:</span>
-            <span className="font-mono text-[11px] text-green-400 truncate max-w-[130px]">{serverUrl}</span>
+            <span>Server Core:</span>
+            <span className="font-mono text-[11px] text-green-400 truncate max-w-[140px]">{serverUrl}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Workspace:</span>
-            <span className="font-mono text-[11px] text-blue-400 truncate max-w-[130px]">
-              {currentSession?.directory || 'E:\\crack'}
+            <span className="font-mono text-[11px] text-blue-400 truncate max-w-[140px]">
+              {selectedProject?.worktree || 'E:\\crack'}
             </span>
           </div>
         </div>
@@ -263,20 +361,49 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col h-full bg-[#0d1117] overflow-hidden">
-        {/* Top Navigation Bar */}
+        {/* Top Navigation & Controls Bar */}
         <div className="h-14 border-b border-[#30363d] bg-[#161b22] px-4 flex items-center justify-between">
+          {/* Agent & Model Selector */}
           <div className="flex items-center space-x-3">
-            <span className="font-semibold text-white">
-              {currentSession?.title || currentSession?.slug || 'Chưa chọn phiên'}
-            </span>
-            {currentSession && (
-              <span className="px-2 py-0.5 text-[11px] bg-blue-900/40 text-blue-300 border border-blue-700/50 rounded-full font-mono">
-                {currentSession.id}
-              </span>
-            )}
+            {/* Agent Select */}
+            <div className="flex items-center space-x-1 bg-[#0d1117] px-2 py-1 rounded-lg border border-[#30363d] text-xs">
+              <Bot className="w-3.5 h-3.5 text-cyan-400" />
+              <select
+                value={selectedAgent}
+                onChange={(e) => setSelectedAgent(e.target.value)}
+                className="bg-transparent text-gray-300 font-medium focus:outline-none cursor-pointer"
+              >
+                {agents.map((a) => (
+                  <option key={a.name} value={a.name} className="bg-[#161b22] text-white">
+                    Agent: {a.name} ({a.mode})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Model Select */}
+            <div className="flex items-center space-x-1 bg-[#0d1117] px-2 py-1 rounded-lg border border-[#30363d] text-xs">
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <select
+                value={`${selectedModel.providerID}:${selectedModel.modelID}`}
+                onChange={(e) => {
+                  const [p, m] = e.target.value.split(':')
+                  setSelectedModel({ providerID: p, modelID: m })
+                }}
+                className="bg-transparent text-gray-300 font-medium focus:outline-none cursor-pointer max-w-[200px] truncate"
+              >
+                {providers.map((p) =>
+                  Object.entries(p.models || {}).map(([mId, mInfo]) => (
+                    <option key={`${p.id}:${mId}`} value={`${p.id}:${mId}`} className="bg-[#161b22] text-white">
+                      {p.name}: {mInfo.name || mId}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
           </div>
 
-          {/* Tab buttons */}
+          {/* Navigation Tabs */}
           <div className="flex items-center space-x-1 bg-[#0d1117] p-1 rounded-lg border border-[#30363d]">
             <button
               onClick={() => setActiveTab('chat')}
@@ -294,7 +421,21 @@ export default function App() {
               }`}
             >
               <FolderTree className="w-3.5 h-3.5" />
-              <span>Tệp & Mã nguồn</span>
+              <span>Tệp & Thư mục</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('diff')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                activeTab === 'diff' ? 'bg-[#21262d] text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <FileDiff className="w-3.5 h-3.5" />
+              <span>Thay đổi (Diff)</span>
+              {diffFiles.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-blue-600 text-white rounded-full text-[10px] font-bold">
+                  {diffFiles.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('tools')}
@@ -303,9 +444,9 @@ export default function App() {
               }`}
             >
               <Terminal className="w-3.5 h-3.5" />
-              <span>Phê duyệt lệnh</span>
+              <span>Duyệt quyền</span>
               {permissions.length > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold animate-pulse">
+                <span className="ml-1 px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold animate-pulse">
                   {permissions.length}
                 </span>
               )}
@@ -343,7 +484,7 @@ export default function App() {
                   </div>
                   <h3 className="text-lg font-medium text-gray-300">Bắt đầu phiên làm việc mới</h3>
                   <p className="max-w-md text-sm text-gray-400">
-                    Nhập yêu cầu để OpenCode tự động phân tích code, chạy command, chỉnh sửa file hoặc phát triển tính năng.
+                    OpenCode tự động hiểu context dự án, chỉnh sửa code, chạy lệnh và sinh diff.
                   </p>
                 </div>
               ) : (
@@ -420,7 +561,7 @@ export default function App() {
                         handleSendPrompt(e)
                       }
                     }}
-                    placeholder="Gõ tin nhắn cho OpenCode... (Nhấn Enter để gửi, Shift+Enter xuống dòng)"
+                    placeholder="Gõ yêu cầu lập trình... (Enter để gửi, Shift+Enter xuống dòng)"
                     className="w-full bg-[#0d1117] border border-[#30363d] focus:border-blue-500 rounded-xl py-3 px-4 text-sm text-white placeholder-gray-500 focus:outline-none resize-none min-h-[50px] max-h-[140px]"
                     rows={2}
                   />
@@ -454,7 +595,9 @@ export default function App() {
           <div className="flex-1 flex h-[calc(100vh-56px)]">
             <div className="w-80 border-r border-[#30363d] bg-[#161b22] p-3 overflow-y-auto">
               <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Thư mục dự án</span>
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Thư mục ({selectedProject?.name || 'Project'})
+                </span>
                 <button onClick={refreshFiles} className="p-1 hover:text-white text-gray-400">
                   <RefreshCw className="w-3.5 h-3.5" />
                 </button>
@@ -497,7 +640,43 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: TOOL APPROVALS */}
+        {/* TAB 3: DIFF VIEWER */}
+        {activeTab === 'diff' && (
+          <div className="flex-1 p-6 overflow-y-auto max-w-5xl mx-auto w-full">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <FileDiff className="w-5 h-5 text-blue-400" />
+              <span>Các tệp đã thay đổi trong phiên này ({diffFiles.length})</span>
+            </h2>
+
+            {diffFiles.length === 0 ? (
+              <div className="p-8 border border-[#30363d] rounded-xl text-center text-gray-400 bg-[#161b22]">
+                <GitBranch className="w-10 h-10 text-gray-500 mx-auto mb-2" />
+                <p className="text-sm font-medium">Chưa có thay đổi code nào được tạo trong phiên này.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {diffFiles.map((diff, idx) => (
+                  <div key={idx} className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden shadow-lg">
+                    <div className="p-3 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold text-gray-200">{diff.path}</span>
+                      <div className="flex items-center space-x-3 text-xs font-mono">
+                        <span className="text-emerald-400">+{diff.additions}</span>
+                        <span className="text-rose-400">-{diff.deletions}</span>
+                      </div>
+                    </div>
+                    {diff.patch && (
+                      <pre className="p-4 text-xs font-mono overflow-x-auto text-gray-300 leading-relaxed bg-[#0d1117]/50">
+                        {diff.patch}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: PERMISSIONS */}
         {activeTab === 'tools' && (
           <div className="flex-1 p-6 overflow-y-auto max-w-4xl mx-auto w-full">
             <div className="flex items-center justify-between mb-4">

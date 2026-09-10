@@ -15,7 +15,7 @@ async function findActiveOpenCodePort() {
       hostname: '127.0.0.1',
       port,
       path: '/path',
-      timeout: 400
+      timeout: 300
     }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -33,7 +33,6 @@ async function findActiveOpenCodePort() {
     req.on('timeout', () => { req.destroy(); resolve(null); });
   });
 
-  // Check danh sách port thông dụng của opencode
   const candidatePorts = [52987, 4096, 53035, 53030, 53024, 53020, 51457, 51456, 51454, 51429, 51424];
   for (const p of candidatePorts) {
     const res = await httpReq(p);
@@ -42,7 +41,6 @@ async function findActiveOpenCodePort() {
   return null;
 }
 
-// Xử lý args truyền vào
 const args = process.argv.slice(2);
 const isWebUI = args.length > 0 && (args[0] === 'webui' || args[0] === 'ui');
 
@@ -55,9 +53,8 @@ if (!isWebUI) {
   });
   child.on('exit', (code) => process.exit(code || 0));
 } else {
-  // Lệnh: opencode webui
   (async () => {
-    console.log('\x1b[36m%s\x1b[0m', '⚡ Khởi động OpenCode WebUI Pro...');
+    console.log('\x1b[36m%s\x1b[0m', '⚡ Khởi động OpenCode WebUI (100% Full Features)...');
 
     let opencodePort = await findActiveOpenCodePort();
     let opencodeProc = null;
@@ -70,7 +67,6 @@ if (!isWebUI) {
         detached: true,
         cwd: process.cwd(),
       });
-      // Đợi server sẵn sàng
       for (let i = 0; i < 15; i++) {
         await new Promise(r => setTimeout(r, 800));
         opencodePort = await findActiveOpenCodePort();
@@ -79,46 +75,86 @@ if (!isWebUI) {
     }
 
     if (!opencodePort) {
-      opencodePort = 52987; // Fallback default
+      opencodePort = 52987;
     }
 
     console.log('\x1b[32m%s\x1b[0m', `✓ Đã kết nối với OpenCode Core tại port: ${opencodePort}`);
 
-    // Serve static Web UI đã build từ folder web/dist
-    const distPath = path.join(__dirname, '../web/dist');
+    // Thư mục UI gốc 100%
+    const staticDir = path.join(__dirname, '../web/opencode-original');
+
     const mimeMap = {
-      '.html': 'text/html',
-      '.js': 'application/javascript',
-      '.css': 'text/css',
-      '.json': 'application/json',
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.json': 'application/json; charset=utf-8',
       '.svg': 'image/svg+xml',
       '.png': 'image/png',
       '.ico': 'image/x-icon',
+      '.webmanifest': 'application/manifest+json'
     };
 
+    // Tạo Reverse Proxy kết hợp Static Server:
+    // Mọi API request (/session, /project, /file, /global/event, v.v.) tự động forward sang OpenCode Core
+    // Mọi asset tĩnh và HTML được serve từ Web UI gốc để bạn thoải mái chỉnh sửa / thêm tính năng sau này!
     const server = http.createServer((req, res) => {
-      // Cho phép CORS
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+      res.setHeader('Access-Control-Allow-Headers', '*');
 
-      let reqUrl = req.url.split('?')[0];
-      let filePath = path.join(distPath, reqUrl === '/' ? 'index.html' : reqUrl);
-
-      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-        filePath = path.join(distPath, 'index.html'); // SPA fallback
+      if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
       }
 
-      const ext = path.extname(filePath);
-      res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream' });
-      fs.createReadStream(filePath).pipe(res);
+      const cleanUrl = req.url.split('?')[0];
+
+      // Kiểm tra nếu là file tĩnh trong thư mục UI
+      const localFilePath = path.join(staticDir, cleanUrl === '/' ? 'index.html' : cleanUrl);
+      if (fs.existsSync(localFilePath) && !fs.statSync(localFilePath).isDirectory()) {
+        const ext = path.extname(localFilePath);
+        res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream' });
+        fs.createReadStream(localFilePath).pipe(res);
+        return;
+      }
+
+      // Nếu không phải file tĩnh local, Proxy 100% request về OpenCode Core Server
+      const proxyReq = http.request({
+        hostname: '127.0.0.1',
+        port: opencodePort,
+        path: req.url,
+        method: req.method,
+        headers: {
+          ...req.headers,
+          host: `127.0.0.1:${opencodePort}`,
+        }
+      }, (proxyRes) => {
+        // Nếu là HTML fallback (SPA route) mà server core trả về 404 thì trả index.html local
+        if (proxyRes.statusCode === 404 && req.headers.accept && req.headers.accept.includes('text/html')) {
+          const indexHtml = path.join(staticDir, 'index.html');
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          fs.createReadStream(indexHtml).pipe(res);
+          return;
+        }
+
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+      });
+
+      proxyReq.on('error', (err) => {
+        res.writeHead(502, { 'Content-Type': 'text/plain' });
+        res.end('Bad Gateway: ' + err.message);
+      });
+
+      req.pipe(proxyReq, { end: true });
     });
 
     server.listen(UI_PORT, () => {
-      const targetUrl = `http://localhost:${UI_PORT}?api=http://127.0.0.1:${opencodePort}`;
-      console.log('\x1b[35m%s\x1b[0m', `🌐 Web UI đang chạy tại: ${targetUrl}`);
-      console.log('Nhấn Ctrl+C để dừng Web UI.');
+      const targetUrl = `http://localhost:${UI_PORT}`;
+      console.log('\x1b[35m%s\x1b[0m', `🌐 Web UI 100% OpenCode đang chạy tại: ${targetUrl}`);
+      console.log('Nhấn Ctrl+C để thoát.');
 
-      // Tự động mở trình duyệt
       const opener = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
       spawn(opener, [targetUrl], { shell: true });
     });

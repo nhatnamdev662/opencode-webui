@@ -1,3 +1,36 @@
+export interface Project {
+  id: string
+  worktree: string
+  vcs?: string
+  name?: string
+  icon?: {
+    override?: string
+    color?: string
+  }
+  time?: {
+    created: number
+    updated: number
+  }
+}
+
+export interface ProviderModel {
+  id: string
+  name: string
+  providerID: string
+}
+
+export interface Provider {
+  id: string
+  name: string
+  models?: Record<string, { name: string }>
+}
+
+export interface Agent {
+  name: string
+  mode: 'primary' | 'subagent'
+  description?: string
+}
+
 export interface Session {
   id: string
   slug: string
@@ -75,4 +108,11 @@ export interface FileItem {
   absolute: string
   type: 'file' | 'directory'
   ignored?: boolean
+}
+
+export interface DiffFile {
+  path: string
+  additions: number
+  deletions: number
+  patch?: string
 }
