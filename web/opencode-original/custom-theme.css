@@ -1,122 +1,118 @@
 /* =========================================================
-   OPENCODE PRO: MODERN FRESH DARK THEME
-   - Premium Sleek Slate/Obsidian Background
-   - Crisp, High-Contrast Typography & Accents
-   - Modern subtle borders and rounded styling
+   OPENCODE PRO: HACKER NEON MATRIX THEME (REAL)
+   Tone chủ đạo: Xanh lá Hacker / Matrix Neon
+   Không có theme đổi sáng tối
    ========================================================= */
 
 :root, html, body {
   color-scheme: dark !important;
-  --theme-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
-/* Backgrounds - Sleek, rich, clean dark (like Linear / GitHub Dark Modern) */
+/* Biến màu chủ đạo OpenCode v2 sang tone Hacker Green */
 :root {
-  --v2-background-bg-deep: #0e1117 !important;
-  --v2-background-bg-base: #161b22 !important;
-  --v2-background-bg-subtle: #1c2129 !important;
-  --v2-background-bg-hover: #242b35 !important;
-  --v2-background-bg-active: #2d3542 !important;
+  /* Background tối chuẩn Cyber (không bị xám nhờ nhờ) */
+  --v2-background-bg-deep: #050a07 !important;
+  --v2-background-bg-base: #09120c !important;
+  --v2-background-bg-subtle: #0f1c14 !important;
+  --v2-background-bg-hover: #15271c !important;
+  --v2-background-bg-active: #1c3526 !important;
 
-  /* Text - Crisp, highly legible, pleasant to read */
-  --v2-text-primary: #f0f6fc !important;
-  --v2-text-secondary: #c9d1d9 !important;
-  --v2-text-tertiary: #8b949e !important;
-  --v2-text-muted: #6e7681 !important;
+  /* Chữ xanh lá hacker tươi sáng, tương phản cực nét */
+  --v2-text-primary: #00ff66 !important;
+  --v2-text-secondary: #5cff95 !important;
+  --v2-text-tertiary: #38b764 !important;
+  --v2-text-muted: #277744 !important;
 
-  /* Borders - Sharp, elegant */
-  --v2-border-subtle: #21262d !important;
-  --v2-border-base: #30363d !important;
-  --v2-border-focus: #10b981 !important;
+  /* Viền xanh matrix */
+  --v2-border-subtle: #122c1b !important;
+  --v2-border-base: #1b432a !important;
+  --v2-border-focus: #00ff66 !important;
 
-  /* Vibrant, artistic emerald green accents (balanced, not overwhelming) */
-  --v2-accent-primary: #10b981 !important;
-  --v2-accent-hover: #059669 !important;
-  --v2-accent-active: #047857 !important;
-  --v2-state-fg-success: #10b981 !important;
+  /* Accent neon green */
+  --v2-accent-primary: #00ff66 !important;
+  --v2-accent-hover: #33ff85 !important;
+  --v2-accent-active: #00cc52 !important;
+  --v2-state-fg-success: #00ff66 !important;
 
-  /* Diffs */
-  --text-diff-add-base: #34d399 !important;
-  --text-diff-del-base: #f87171 !important;
+  /* Code diffs */
+  --text-diff-add-base: #00ff66 !important;
+  --text-diff-del-base: #ff4757 !important;
 }
 
-/* Main window background */
+/* Nền app tổng thể */
 html, body, #root {
-  background-color: #0e1117 !important;
-  color: #f0f6fc !important;
+  background-color: #050a07 !important;
+  color: #00ff66 !important;
 }
 
-/* Sidebar & Navigation - Sleek layered contrast */
+/* Sidebar & Header */
 aside, nav, [class*="sidebar"], [class*="Sidebar"] {
-  background-color: #12161d !important;
-  border-color: #21262d !important;
+  background-color: #070e0a !important;
+  border-color: #122c1b !important;
 }
 
-/* Modal, Settings Dialog & Panels */
+/* Cửa sổ cài đặt / Dialog */
 div[role="dialog"], [class*="dialog"], [class*="modal"] {
-  background-color: #161b22 !important;
-  border: 1px solid #30363d !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45) !important;
+  background-color: #09120c !important;
+  border: 1px solid #1b432a !important;
+  box-shadow: 0 0 25px rgba(0, 255, 102, 0.12) !important;
 }
 
-/* Active tab/item in settings sidebar - Clean emerald pill with soft glow */
+/* Tab item active bên trái Cài đặt: Xanh neon tinh tế */
 [class*="nav"] [class*="active"], 
 [aria-selected="true"],
 div[data-selected="true"],
 button[data-state="active"] {
-  background-color: #1a2a22 !important;
-  color: #34d399 !important;
-  border-left: 3px solid #10b981 !important;
+  background-color: #0f2417 !important;
+  color: #00ff66 !important;
+  border-left: 3px solid #00ff66 !important;
 }
 
-/* Buttons - Professional & aesthetic */
+/* Nút bấm */
 button[class*="primary"], .btn-primary {
-  background-color: #10b981 !important;
-  color: #ffffff !important;
-  font-weight: 500 !important;
-  border: 1px solid #10b981 !important;
-  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25) !important;
-  transition: all 0.15s ease !important;
+  background-color: #00cc52 !important;
+  color: #050a07 !important;
+  font-weight: 700 !important;
+  border: 1px solid #00ff66 !important;
+  box-shadow: 0 0 10px rgba(0, 255, 102, 0.3) !important;
 }
 
 button[class*="primary"]:hover, .btn-primary:hover {
-  background-color: #059669 !important;
-  border-color: #059669 !important;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35) !important;
+  background-color: #00ff66 !important;
+  color: #000000 !important;
 }
 
-/* Toggle Switches - Elegant Emerald */
+/* Switch gạt */
 [role="switch"][data-checked="true"],
 [role="switch"][aria-checked="true"] {
-  background-color: #10b981 !important;
+  background-color: #00ff66 !important;
 }
 
-/* Inputs, Textareas & Selects */
+/* Inputs */
 input, textarea, select {
-  background-color: #0d1117 !important;
-  color: #f0f6fc !important;
-  border: 1px solid #30363d !important;
-  border-radius: 6px !important;
+  background-color: #050a07 !important;
+  color: #00ff66 !important;
+  border: 1px solid #1b432a !important;
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+  border-color: #00ff66 !important;
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.3) !important;
   outline: none !important;
 }
 
-/* Scrollbar - Thin & sleek */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #050a07;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #1b432a;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10b981;
+  background: #00ff66;
 }
