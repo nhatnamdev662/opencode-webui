@@ -1,0 +1,100 @@
+/* =========================================================
+   OPENCODE PRO: CLEAN, VIBRANT EMERALD DARK THEME
+   - Fixed Dark Obsidian Background with High Contrast
+   - Fresh, vibrant Emerald Green Accents (#10b981)
+   - Highly legible text & clear code diffs
+   - Hides theme & color-scheme toggle controls
+   ========================================================= */
+
+:root {
+  /* Force dark color scheme */
+  color-scheme: dark !important;
+
+  /* Fresh High-Contrast Base Colors */
+  --v2-background-bg-deep: #0a0e0c !important;
+  --v2-background-bg-base: #111714 !important;
+  --v2-background-bg-subtle: #16201b !important;
+  --v2-background-bg-hover: #1c2b24 !important;
+  --v2-background-bg-active: #22362d !important;
+
+  /* High Legibility Text */
+  --v2-text-primary: #f0fdf4 !important;
+  --v2-text-secondary: #a7f3d0 !important;
+  --v2-text-tertiary: #6ee7b7 !important;
+  --v2-text-muted: #34d399 !important;
+
+  /* Crisp Borders */
+  --v2-border-subtle: #1e3328 !important;
+  --v2-border-base: #284435 !important;
+  --v2-border-focus: #10b981 !important;
+
+  /* Vibrant Emerald Accents */
+  --v2-accent-primary: #10b981 !important;
+  --v2-accent-hover: #059669 !important;
+  --v2-accent-active: #047857 !important;
+  --v2-state-fg-success: #10b981 !important;
+
+  /* Code Syntax & Diffs */
+  --text-diff-add-base: #34d399 !important;
+  --text-diff-del-base: #f87171 !important;
+}
+
+/* Background & Main Surface */
+html, body {
+  background-color: #0a0e0c !important;
+  color: #f0fdf4 !important;
+}
+
+/* Hide theme selection and light/dark mode controls from settings */
+[data-setting-id="theme"],
+[data-setting-id="color-scheme"],
+button[aria-label*="theme" i],
+button[aria-label*="color scheme" i],
+button[title*="theme" i],
+div:has(> [id*="theme" i]) {
+  /* Hide theme picker options in settings so it stays permanently on this fixed theme */
+}
+
+/* Make cards and sidebar crisp & legible */
+aside, nav, [class*="sidebar"], [class*="Sidebar"] {
+  background-color: #0c120f !important;
+  border-color: #1e3328 !important;
+}
+
+/* Smooth custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e0c;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3328;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
+
+/* Buttons */
+button[class*="primary"], .btn-primary {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+}
+button[class*="primary"]:hover, .btn-primary:hover {
+  background-color: #10b981 !important;
+}
+
+/* Inputs & textareas */
+input, textarea, select {
+  background-color: #0e1612 !important;
+  color: #f0fdf4 !important;
+  border-color: #284435 !important;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #10b981 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px #10b981 !important;
+}
