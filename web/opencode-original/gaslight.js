@@ -1,10 +1,26 @@
-// OpenCode WebUI Gaslight Feature v2
-// - Fixed 400 error: PATCH body must include sessionID + messageID
-// - Always-visible Edit button (subtle, clean)
-// - Editor closes ONLY via Cancel button or Escape (never on outside click / text selection)
+// OpenCode WebUI Gaslight Feature v3
+// - Repositioned:
+//   * Chat messages: Edit button located in the action bar directly BELOW the assistant message
+//   * Thinking blocks: Edit button located directly BELOW the thinking/reasoning block
+// - Reliable selector: Uses data-component="text-part" & data-component="reasoning-part" with data-timeline-part-id
+// - Fixed caching: Never serves stale code
+// - Fixed 400 error: PATCH body includes sessionID + messageID + full part object
+// - Safe editor: Closes ONLY via Cancel or Escape (drag/selection safe)
 
 (function() {
   'use strict';
+
+  // Ensure showReasoningSummaries is enabled in localStorage so thinking blocks render
+  try {
+    const raw = localStorage.getItem('settings.v3');
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s.general && s.general.showReasoningSummaries === false) {
+        s.general.showReasoningSummaries = true;
+        localStorage.setItem('settings.v3', JSON.stringify(s));
+      }
+    }
+  } catch {}
 
   const STYLE = document.createElement('style');
   STYLE.textContent = `
@@ -12,42 +28,58 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2px 8px;
+      height: 22px;
+      padding: 0 8px;
       font-size: 11px;
-      font-family: monospace;
-      color: #6e7681;
+      font-family: inherit;
+      font-weight: 500;
+      color: var(--text-weak, #8b949e);
       background: transparent;
-      border: 1px solid #21262d;
-      border-radius: 6px;
+      border: 1px solid rgba(139,148,158,0.22);
+      border-radius: 5px;
       cursor: pointer;
       transition: all 0.15s ease;
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      z-index: 50;
-      opacity: 0.35;
+      user-select: none;
+      line-height: 1;
+      opacity: 0.75;
     }
     .gaslight-btn:hover {
-      color: #f0f6fc;
-      background: rgba(139,148,158,0.15);
-      border-color: rgba(139,148,158,0.4);
+      color: var(--text-normal, #f0f6fc);
+      background: rgba(139,148,158,0.14);
+      border-color: rgba(139,148,158,0.45);
       opacity: 1;
     }
     .gaslight-btn svg {
       width: 12px;
       height: 12px;
       pointer-events: none;
+      flex-shrink: 0;
     }
-    [data-gaslight-wrap]:hover .gaslight-btn {
-      opacity: 1;
+    .gaslight-btn-chat {
+      margin-left: 2px;
+    }
+    .gaslight-reasoning-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      margin-bottom: 8px;
+      padding-top: 2px;
+    }
+    .gaslight-text-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      margin-bottom: 6px;
     }
 
     .gaslight-editor-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.65);
       backdrop-filter: blur(4px);
-      z-index: 9999;
+      z-index: 99999;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -62,8 +94,8 @@
       border: 1px solid #30363d;
       border-radius: 12px;
       width: 90%;
-      max-width: 720px;
-      max-height: 80vh;
+      max-width: 760px;
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
       box-shadow: 0 24px 48px rgba(0,0,0,0.5);
@@ -101,8 +133,8 @@
       font-size: 12.5px;
       line-height: 1.6;
       resize: none;
-      min-height: 200px;
-      max-height: 60vh;
+      min-height: 250px;
+      max-height: 65vh;
       cursor: text;
     }
     .gaslight-editor-textarea:focus {
@@ -119,7 +151,7 @@
     }
     .gaslight-editor-footer-hint {
       font-size: 11px;
-      color: #484f58;
+      color: #6e7681;
       font-family: monospace;
     }
     .gaslight-editor-actions {
@@ -169,7 +201,7 @@
       font-size: 12px;
       font-family: monospace;
       font-weight: 500;
-      z-index: 99999;
+      z-index: 999999;
       animation: gaslight-toast-in 0.2s ease;
       pointer-events: none;
     }
@@ -201,7 +233,6 @@
   }
 
   function openEditor(sessionID, messageID, partID, originalText, partType, fullPart) {
-    // Close any existing editor first
     document.querySelectorAll('.gaslight-editor-overlay').forEach(o => o.remove());
 
     const overlay = document.createElement('div');
@@ -214,7 +245,7 @@
         <div class="gaslight-editor-header">
           <div>
             <div class="gaslight-editor-title">Edit ${label}</div>
-            <div class="gaslight-editor-subtitle">Part: ${partID}</div>
+            <div class="gaslight-editor-subtitle">Part: ${partID} | Message: ${messageID}</div>
           </div>
         </div>
         <textarea class="gaslight-editor-textarea" spellcheck="false"></textarea>
@@ -239,12 +270,10 @@
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
     const close = () => {
-      document.removeEventListener('keydown', escHandler);
+      document.removeEventListener('keydown', escHandler, true);
       overlay.remove();
     };
 
-    // ONLY Cancel button and Escape close the editor.
-    // Clicking outside / on overlay does NOTHING (so text selection and drags are safe)
     btnCancel.addEventListener('click', close);
 
     function escHandler(e) {
@@ -268,8 +297,14 @@
       btnSave.textContent = 'Saving...';
 
       try {
-        // CRITICAL FIX: PATCH body must include sessionID + messageID
-        const payload = Object.assign({}, fullPart, { text: newText });
+        const payload = Object.assign({}, fullPart, {
+          sessionID: sessionID,
+          messageID: messageID,
+          id: partID,
+          type: partType,
+          text: newText
+        });
+
         const url = '/session/' + sessionID + '/message/' + messageID + '/part/' + partID;
         const resp = await fetch(url, {
           method: 'PATCH',
@@ -295,7 +330,28 @@
     });
   }
 
+  // Cache: messageID -> message, and partID -> { part, message, sessionID }
   const messageCache = new Map();
+  const partCache = new Map();
+
+  function cacheMessages(msgs, fallbackSessionID) {
+    if (!Array.isArray(msgs)) return;
+    msgs.forEach(msg => {
+      if (msg?.info?.id) {
+        messageCache.set(msg.info.id, msg);
+        const sid = msg.info.sessionID || fallbackSessionID;
+        (msg.parts || []).forEach(p => {
+          if (p?.id) {
+            partCache.set(p.id, {
+              part: p,
+              message: msg,
+              sessionID: p.sessionID || sid
+            });
+          }
+        });
+      }
+    });
+  }
 
   const originalFetch = window.fetch;
   window.fetch = async function(...args) {
@@ -306,14 +362,10 @@
       try {
         const cloned = response.clone();
         const data = await cloned.json();
-        if (Array.isArray(data)) {
-          data.forEach(msg => {
-            if (msg?.info?.id) {
-              messageCache.set(msg.info.id, msg);
-            }
-          });
-          setTimeout(() => injectEditButtons(), 300);
-        }
+        const match = url.match(/ses_[a-zA-Z0-9]+/);
+        const sid = match ? match[0] : null;
+        cacheMessages(data, sid);
+        setTimeout(() => injectEditButtons(), 200);
       } catch {}
     }
 
@@ -323,87 +375,151 @@
   function getCurrentSessionID() {
     const urlMatch = window.location.href.match(/ses_[a-zA-Z0-9]+/);
     if (urlMatch) return urlMatch[0];
-    for (const [, msg] of messageCache) {
-      if (msg.info?.sessionID) return msg.info.sessionID;
+    for (const [, entry] of partCache) {
+      if (entry.sessionID) return entry.sessionID;
     }
     return null;
+  }
+
+  async function ensurePartLoaded(sessionID, partId) {
+    let cached = partCache.get(partId);
+    if (cached && cached.part && cached.message) return cached;
+
+    if (sessionID) {
+      try {
+        const resp = await originalFetch('/session/' + sessionID + '/message');
+        const msgs = await resp.json();
+        cacheMessages(msgs, sessionID);
+      } catch {}
+    }
+    return partCache.get(partId) || null;
+  }
+
+  async function handleEditClick(sessionID, partId, partType, btn) {
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = PENCIL_SVG + '<span>Loading...</span>';
+
+    try {
+      const cached = await ensurePartLoaded(sessionID, partId);
+      if (cached && cached.part) {
+        const fullPart = cached.part;
+        const msgId = cached.message.info.id;
+        openEditor(sessionID, msgId, partId, fullPart.text || '', fullPart.type, fullPart);
+        return;
+      }
+
+      // Fallback if not found in cache: try to read from DOM
+      const domEl = document.querySelector('[data-timeline-part-id="' + partId + '"]');
+      const text = domEl ? domEl.innerText.trim() : '';
+      openEditor(sessionID, 'unknown', partId, text, partType, {
+        id: partId,
+        sessionID: sessionID,
+        type: partType,
+        text: text
+      });
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
   }
 
   function injectEditButtons() {
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
 
-    const allMsgs = Array.from(messageCache.values()).filter(m => m.info.role === 'assistant');
+    // 1. Assistant text parts (chat messages) -> đặt ở DƯỚI đoạn chat của agent
+    const textEls = document.querySelectorAll('[data-component="text-part"][data-timeline-part-id]');
+    textEls.forEach(el => {
+      const partId = el.getAttribute('data-timeline-part-id');
+      if (!partId || el.querySelector('[data-gaslight-part="' + partId + '"]')) return;
 
-    allMsgs.forEach(msg => {
-      const editableParts = (msg.parts || []).filter(p =>
-        (p.type === 'text' || p.type === 'reasoning') && p.text && p.id
-      );
+      const btn = document.createElement('button');
+      btn.className = 'gaslight-btn gaslight-btn-chat';
+      btn.setAttribute('data-gaslight-part', partId);
+      btn.setAttribute('type', 'button');
+      btn.title = 'Edit assistant response';
+      btn.innerHTML = PENCIL_SVG + '<span>Edit</span>';
 
-      editableParts.forEach(part => {
-        const partId = part.id;
-        if (document.querySelector('[data-gaslight-part="' + partId + '"]')) return;
-
-        const searchText = part.text.trim().substring(0, 60);
-        if (!searchText) return;
-
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-
-        let targetNode = null;
-        while (walker.nextNode()) {
-          const nodeText = walker.currentNode.textContent || '';
-          if (nodeText.trim().startsWith(searchText.substring(0, 30))) {
-            targetNode = walker.currentNode;
-            break;
-          }
-        }
-
-        if (!targetNode) return;
-
-        let container = targetNode.parentElement;
-        for (let i = 0; i < 5; i++) {
-          if (!container) break;
-          const display = window.getComputedStyle(container).display;
-          if (display === 'block' || display === 'flex') break;
-          container = container.parentElement;
-        }
-
-        if (!container || container.querySelector('[data-gaslight-part]')) return;
-
-        container.style.position = container.style.position || 'relative';
-        container.setAttribute('data-gaslight-wrap', '1');
-
-        const btn = document.createElement('button');
-        btn.className = 'gaslight-btn';
-        btn.setAttribute('data-gaslight-part', partId);
-        btn.innerHTML = PENCIL_SVG + ' Edit';
-        btn.title = 'Edit this ' + (part.type === 'reasoning' ? 'thinking' : 'response');
-
-        // Prevent click from bubbling into app handlers
-        btn.addEventListener('mousedown', (e) => e.stopPropagation());
-        btn.addEventListener('mouseup', (e) => e.stopPropagation());
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openEditor(sessionID, msg.info.id, partId, part.text, part.type, part);
-        });
-
-        container.appendChild(btn);
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('mouseup', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleEditClick(sessionID, partId, 'text', btn);
       });
+
+      const copyWrapper = el.querySelector('[data-slot="text-part-copy-wrapper"]');
+      if (copyWrapper) {
+        const copyTrigger = copyWrapper.querySelector('[data-component="tooltip-v2-trigger"]');
+        if (copyTrigger) {
+          copyTrigger.after(btn);
+        } else {
+          copyWrapper.appendChild(btn);
+        }
+      } else {
+        const body = el.querySelector('[data-slot="text-part-body"]') || el;
+        const footer = document.createElement('div');
+        footer.className = 'gaslight-text-footer';
+        footer.appendChild(btn);
+        body.after(footer);
+      }
+    });
+
+    // 2. Assistant thinking parts (reasoning) -> đặt ở DƯỚI đoạn thinking
+    const reasoningEls = document.querySelectorAll('[data-component="reasoning-part"][data-timeline-part-id]');
+    reasoningEls.forEach(el => {
+      const partId = el.getAttribute('data-timeline-part-id');
+      if (!partId || el.querySelector('[data-gaslight-part="' + partId + '"]')) return;
+
+      const footer = document.createElement('div');
+      footer.className = 'gaslight-reasoning-footer';
+
+      const btn = document.createElement('button');
+      btn.className = 'gaslight-btn gaslight-btn-thinking';
+      btn.setAttribute('data-gaslight-part', partId);
+      btn.setAttribute('type', 'button');
+      btn.title = 'Edit thinking / reasoning';
+      btn.innerHTML = PENCIL_SVG + '<span>Edit thinking</span>';
+
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('mouseup', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleEditClick(sessionID, partId, 'reasoning', btn);
+      });
+
+      footer.appendChild(btn);
+      el.appendChild(footer);
     });
   }
 
+  let lastSessionId = null;
+  function checkSessionChange() {
+    const current = getCurrentSessionID();
+    if (current && current !== lastSessionId) {
+      lastSessionId = current;
+      ensurePartLoaded(current).then(() => injectEditButtons());
+    }
+  }
+
   const observer = new MutationObserver(() => {
-    setTimeout(() => injectEditButtons(), 200);
+    checkSessionChange();
+    injectEditButtons();
   });
 
   function startObserving() {
     const root = document.getElementById('root');
     if (root) {
       observer.observe(root, { childList: true, subtree: true });
-      setTimeout(() => injectEditButtons(), 1000);
+      checkSessionChange();
+      setTimeout(injectEditButtons, 500);
+      setTimeout(injectEditButtons, 1500);
     } else {
-      setTimeout(startObserving, 500);
+      setTimeout(startObserving, 300);
     }
   }
 
@@ -413,5 +529,10 @@
     startObserving();
   }
 
-  console.log('[OpenCode WebUI] Gaslight v2 loaded');
+  window.addEventListener('popstate', () => {
+    checkSessionChange();
+    setTimeout(injectEditButtons, 300);
+  });
+
+  console.log('[OpenCode WebUI] Gaslight v3 loaded');
 })();

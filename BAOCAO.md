@@ -41,15 +41,20 @@
 - `index.html` được inject 1 hook nhỏ: `window.__OPENCODE_API_BASE__` (đọc từ query `?api=`).
 - Giữ nguyên 100% tính năng gốc: chọn Project, Agent, Model, Chat, Diff, File tree, Permissions, Settings.
 
-### 2.3. Tính năng Gaslight (web/opencode-original/gaslight.js)
+### 2.3. Tính năng Gaslight (web/opencode-original/gaslight.js - v3)
 - **Chức năng:** Chỉnh sửa tin nhắn trả về của assistant (giống plugin `opencode-gaslight` trên TUI).
-- Nút **Edit** (bút chì) hiện trên các part `type: text` hoặc `type: reasoning` của assistant. KHÔNG hiện trên tool call / step-start / step-finish / tin nhắn user.
-- Popup editor chỉnh sửa nội dung, Save gọi `PATCH /session/{sessionID}/message/{messageID}/part/{partID}`.
-- **Cơ chế:** Intercept `window.fetch` để cache message data → MutationObserver theo dõi DOM → khớp text → gắn nút.
-- **Đã fix 3 bug trong v2 (commit ded387d):**
-  1. **Lỗi 400 PATCH:** API yêu cầu body chứa `sessionID` + `messageID` (trước đó chỉ gửi `{type, text, id}` → 400 "Missing key sessionID"). Giờ gửi toàn bộ part object + text mới.
-  2. **Editor tự tắt nhầm:** Trước đó click outside (overlay) hoặc drag chuột chọn text đều làm tắt editor. Giờ chỉ tắt bằng nút **Cancel** hoặc phím **Esc** — click ngoài/làm gì cũng không tắt.
-  3. **Nút Edit khó bấm:** Nút luôn render với opacity 0.35 (thấy được), hover vào message mới full opacity, và đã stopPropagation mousedown/mouseup/click để không bị handler của app chặn.
+- **Vị trí nút Edit (v3):**
+  - **Dưới đoạn chat của agent:** Đặt trong action bar footer `text-part-copy-wrapper` (cùng hàng với nút Copy response), không bao giờ đè lên nội dung chữ hay chèn vào giữa các đoạn văn bản.
+  - **Dưới đoạn thinking (reasoning):** Đặt trong footer riêng `gaslight-reasoning-footer` ở dưới cùng của khối thinking với nhãn `Edit thinking`.
+- **Cơ chế xác định phần tử chính xác 100%:**
+  - Thay thế TreeWalker tìm text bằng selector chuẩn OpenCode: `[data-component="text-part"]` và `[data-component="reasoning-part"]` kết hợp `data-timeline-part-id`.
+  - Tự động bật `showReasoningSummaries` trong localStorage `settings.v3` nếu đang bị tắt, giúp các khối thinking luôn được OpenCode hiển thị trên giao diện.
+- **Popup editor:**
+  - Chỉnh sửa nội dung, Save gọi `PATCH /session/{sessionID}/message/{messageID}/part/{partID}` với đầy đủ full part object + new text.
+  - Đóng an toàn: Chỉ đóng khi bấm Cancel hoặc phím Esc, kéo thả bôi đen văn bản hay bấm ra ngoài không bị đóng nhầm.
+- **Fix triệt để cache browser:**
+  - Cập nhật `bin/cli.js` gửi header `Cache-Control: no-cache` riêng cho `/gaslight.js`.
+  - Thêm query string `/gaslight.js?v=3` trong `index.html`. Browser luôn nạp ngay code mới nhất khi reload.
 
 ---
 
