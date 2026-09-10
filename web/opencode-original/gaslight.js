@@ -1,6 +1,7 @@
-// OpenCode WebUI Gaslight Feature
-// Inject inline edit buttons on assistant text/reasoning parts
-// Uses PATCH /session/{sessionID}/message/{messageID}/part/{partID}
+// OpenCode WebUI Gaslight Feature v2
+// - Fixed 400 error: PATCH body must include sessionID + messageID
+// - Always-visible Edit button (subtle, clean)
+// - Editor closes ONLY via Cancel button or Escape (never on outside click / text selection)
 
 (function() {
   'use strict';
@@ -14,26 +15,28 @@
       padding: 2px 8px;
       font-size: 11px;
       font-family: monospace;
-      color: #8b949e;
+      color: #6e7681;
       background: transparent;
-      border: 1px solid transparent;
+      border: 1px solid #21262d;
       border-radius: 6px;
       cursor: pointer;
-      opacity: 0;
       transition: all 0.15s ease;
       position: absolute;
       top: 6px;
       right: 6px;
       z-index: 50;
+      opacity: 0.35;
     }
     .gaslight-btn:hover {
       color: #f0f6fc;
       background: rgba(139,148,158,0.15);
-      border-color: rgba(139,148,158,0.3);
+      border-color: rgba(139,148,158,0.4);
+      opacity: 1;
     }
     .gaslight-btn svg {
       width: 12px;
       height: 12px;
+      pointer-events: none;
     }
     [data-gaslight-wrap]:hover .gaslight-btn {
       opacity: 1;
@@ -73,6 +76,7 @@
       align-items: center;
       justify-content: space-between;
       background: #0d1117;
+      cursor: default;
     }
     .gaslight-editor-title {
       font-size: 13px;
@@ -99,9 +103,11 @@
       resize: none;
       min-height: 200px;
       max-height: 60vh;
+      cursor: text;
     }
     .gaslight-editor-textarea:focus {
       outline: none;
+      box-shadow: none;
     }
     .gaslight-editor-footer {
       padding: 10px 16px;
@@ -184,7 +190,6 @@
   `;
   document.head.appendChild(STYLE);
 
-  // SVG icon for edit button
   const PENCIL_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L3.462 11.1a.25.25 0 00-.064.108l-.631 2.208 2.208-.63a.25.25 0 00.108-.064l8.61-8.61a.25.25 0 000-.354l-1.086-1.086z"/></svg>';
 
   function showToast(message, type) {
@@ -195,7 +200,10 @@
     setTimeout(() => t.remove(), 2500);
   }
 
-  function openEditor(sessionID, messageID, partID, originalText, partType) {
+  function openEditor(sessionID, messageID, partID, originalText, partType, fullPart) {
+    // Close any existing editor first
+    document.querySelectorAll('.gaslight-editor-overlay').forEach(o => o.remove());
+
     const overlay = document.createElement('div');
     overlay.className = 'gaslight-editor-overlay';
 
@@ -211,7 +219,7 @@
         </div>
         <textarea class="gaslight-editor-textarea" spellcheck="false"></textarea>
         <div class="gaslight-editor-footer">
-          <div class="gaslight-editor-footer-hint">Esc to cancel</div>
+          <div class="gaslight-editor-footer-hint">Esc to cancel — click outside does nothing</div>
           <div class="gaslight-editor-actions">
             <button class="gaslight-btn-cancel">Cancel</button>
             <button class="gaslight-btn-save">Save Changes</button>
@@ -228,23 +236,25 @@
 
     textarea.value = originalText;
     textarea.focus();
-    // Move cursor to end
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
-    const close = () => overlay.remove();
+    const close = () => {
+      document.removeEventListener('keydown', escHandler);
+      overlay.remove();
+    };
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-
+    // ONLY Cancel button and Escape close the editor.
+    // Clicking outside / on overlay does NOTHING (so text selection and drags are safe)
     btnCancel.addEventListener('click', close);
 
-    document.addEventListener('keydown', function escHandler(e) {
+    function escHandler(e) {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         close();
-        document.removeEventListener('keydown', escHandler);
       }
-    });
+    }
+    document.addEventListener('keydown', escHandler, true);
 
     btnSave.addEventListener('click', async () => {
       const newText = textarea.value;
@@ -258,25 +268,22 @@
       btnSave.textContent = 'Saving...';
 
       try {
+        // CRITICAL FIX: PATCH body must include sessionID + messageID
+        const payload = Object.assign({}, fullPart, { text: newText });
         const url = '/session/' + sessionID + '/message/' + messageID + '/part/' + partID;
         const resp = await fetch(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: partType,
-            text: newText,
-            id: partID
-          })
+          body: JSON.stringify(payload)
         });
 
         if (resp.ok) {
-          showToast('Updated successfully! Reload to see changes.', 'success');
+          showToast('Updated! Reloading...', 'success');
           close();
-          // Reload page after short delay to reflect changes
-          setTimeout(() => window.location.reload(), 800);
+          setTimeout(() => window.location.reload(), 600);
         } else {
           const errText = await resp.text();
-          showToast('Failed: ' + resp.status + ' ' + errText.slice(0, 100), 'error');
+          showToast('Failed: ' + resp.status + ' ' + errText.slice(0, 80), 'error');
           btnSave.disabled = false;
           btnSave.textContent = 'Save Changes';
         }
@@ -288,17 +295,13 @@
     });
   }
 
-  // Parse session/message/part IDs from the page's data and SSE events
-  // We store message data globally when we intercept fetch responses
   const messageCache = new Map();
 
-  // Intercept fetch to capture message data
   const originalFetch = window.fetch;
   window.fetch = async function(...args) {
     const response = await originalFetch.apply(this, args);
     const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
 
-    // Capture message list responses
     if (url.match(/\/session\/ses_[^/]+\/message/) && !url.includes('/part/')) {
       try {
         const cloned = response.clone();
@@ -309,7 +312,6 @@
               messageCache.set(msg.info.id, msg);
             }
           });
-          // After caching, inject edit buttons
           setTimeout(() => injectEditButtons(), 300);
         }
       } catch {}
@@ -318,33 +320,19 @@
     return response;
   };
 
-  // Extract session ID from current URL or page state
   function getCurrentSessionID() {
-    // Try URL hash/path
     const urlMatch = window.location.href.match(/ses_[a-zA-Z0-9]+/);
     if (urlMatch) return urlMatch[0];
-
-    // Try localStorage or page content
-    const stored = localStorage.getItem('opencode-active-session');
-    if (stored) return stored;
-
-    // Scan messageCache for any session ID
     for (const [, msg] of messageCache) {
       if (msg.info?.sessionID) return msg.info.sessionID;
     }
-
     return null;
   }
 
   function injectEditButtons() {
-    // Find all message containers that haven't been processed yet
-    // OpenCode renders messages in elements with data attributes or specific class patterns
-    // We look for text content blocks within assistant messages
-
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
 
-    // Strategy: find all rendered message blocks, match them to cached data by text content
     const allMsgs = Array.from(messageCache.values()).filter(m => m.info.role === 'assistant');
 
     allMsgs.forEach(msg => {
@@ -354,19 +342,12 @@
 
       editableParts.forEach(part => {
         const partId = part.id;
-        // Skip if already injected
         if (document.querySelector('[data-gaslight-part="' + partId + '"]')) return;
 
-        // Find the DOM element containing this text
-        // Search through all text nodes for a match (first 60 chars)
         const searchText = part.text.trim().substring(0, 60);
         if (!searchText) return;
 
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
 
         let targetNode = null;
         while (walker.nextNode()) {
@@ -379,9 +360,7 @@
 
         if (!targetNode) return;
 
-        // Find a suitable parent container to attach the button
         let container = targetNode.parentElement;
-        // Walk up a few levels to find a block-level element
         for (let i = 0; i < 5; i++) {
           if (!container) break;
           const display = window.getComputedStyle(container).display;
@@ -391,8 +370,7 @@
 
         if (!container || container.querySelector('[data-gaslight-part]')) return;
 
-        // Make container relative for absolute positioning of button
-        container.style.position = 'relative';
+        container.style.position = container.style.position || 'relative';
         container.setAttribute('data-gaslight-wrap', '1');
 
         const btn = document.createElement('button');
@@ -401,10 +379,13 @@
         btn.innerHTML = PENCIL_SVG + ' Edit';
         btn.title = 'Edit this ' + (part.type === 'reasoning' ? 'thinking' : 'response');
 
+        // Prevent click from bubbling into app handlers
+        btn.addEventListener('mousedown', (e) => e.stopPropagation());
+        btn.addEventListener('mouseup', (e) => e.stopPropagation());
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          openEditor(sessionID, msg.info.id, partId, part.text, part.type);
+          openEditor(sessionID, msg.info.id, partId, part.text, part.type, part);
         });
 
         container.appendChild(btn);
@@ -412,17 +393,14 @@
     });
   }
 
-  // Re-inject on DOM changes (SPA navigation, new messages)
   const observer = new MutationObserver(() => {
     setTimeout(() => injectEditButtons(), 200);
   });
 
-  // Start observing once #root is available
   function startObserving() {
     const root = document.getElementById('root');
     if (root) {
       observer.observe(root, { childList: true, subtree: true });
-      // Initial injection
       setTimeout(() => injectEditButtons(), 1000);
     } else {
       setTimeout(startObserving, 500);
@@ -435,5 +413,5 @@
     startObserving();
   }
 
-  console.log('[OpenCode WebUI] Gaslight feature loaded');
+  console.log('[OpenCode WebUI] Gaslight v2 loaded');
 })();

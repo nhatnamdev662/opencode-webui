@@ -176,10 +176,13 @@ if (!isWebUI) {
           host: `127.0.0.1:${opencodePort}`,
         }
       }, (proxyRes) => {
-        // SPA Fallback: nếu gọi route text/html mà 404 thì trả index.html
-        if (proxyRes.statusCode === 404 && req.headers.accept && req.headers.accept.includes('text/html')) {
+        // SPA Fallback: mọi route HTML (kể cả 200 từ core) đều trả index.html local có gaslight
+        const isHtmlRoute = (req.headers.accept && req.headers.accept.includes('text/html'))
+          || (proxyRes.headers['content-type'] || '').includes('text/html');
+
+        if (isHtmlRoute && !cleanUrl.startsWith('/assets/') && cleanUrl !== '/') {
           const indexHtml = path.join(staticDir, 'index.html');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
           fs.createReadStream(indexHtml).pipe(res);
           return;
         }
