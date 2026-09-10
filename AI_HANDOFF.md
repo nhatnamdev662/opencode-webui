@@ -25,7 +25,8 @@ Custom Web UI cho OpenCode, chạy bằng lệnh `opencode webui` (mở http://l
 - Đặt nút Edit ở DƯỚI đoạn thinking (trong footer riêng bên dưới khối thinking).
 - Thay thế hoàn toàn tìm kiếm `TreeWalker` cũ bằng selector chuẩn `[data-component="text-part"]` và `[data-component="reasoning-part"]` dựa vào `data-timeline-part-id`.
 - Tự động bật `showReasoningSummaries` trong `settings.v3` nếu đang tắt để thinking luôn hiển thị.
-- Fix triệt để cache: `bin/cli.js` gửi `no-cache` cho `gaslight.js` + script thêm `?v=3` giúp cập nhật code tức thì không bị browser giữ cache cũ.
+- Cập nhật thời gian thực không cần F5/reload: Khi Save thành công, OpenCode Core dispatch event SSE giúp SolidJS cập nhật ngay văn bản trên màn hình, bỏ hoàn toàn lệnh `window.location.reload()`.
+- Fix triệt để cache: `bin/cli.js` gửi `no-cache` cho `gaslight.js` + script thêm query version giúp cập nhật code tức thì không bị browser giữ cache cũ.
 
 **5. Yêu cầu cho phiên này:**
 Đọc 3 file `bin/cli.js`, `web/opencode-original/index.html`, `web/opencode-original/gaslight.js` trước khi làm. Chạy `opencode webui`, test ở http://localhost:3456, sửa tiếp theo yêu cầu của tôi. Mỗi lần sửa xong: `git add .; git commit -m "..."; git push origin master`. Không tự ý đổi UI gốc, không thêm theme.

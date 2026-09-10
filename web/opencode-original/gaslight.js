@@ -304,6 +304,9 @@
           type: partType,
           text: newText
         });
+        if (partType === 'reasoning' && !payload.time) {
+          payload.time = { start: Date.now(), end: Date.now() };
+        }
 
         const url = '/session/' + sessionID + '/message/' + messageID + '/part/' + partID;
         const resp = await fetch(url, {
@@ -313,9 +316,12 @@
         });
 
         if (resp.ok) {
-          showToast('Updated! Reloading...', 'success');
+          if (fullPart) fullPart.text = newText;
+          const cached = partCache.get(partID);
+          if (cached && cached.part) cached.part.text = newText;
+
+          showToast('Updated successfully!', 'success');
           close();
-          setTimeout(() => window.location.reload(), 600);
         } else {
           const errText = await resp.text();
           showToast('Failed: ' + resp.status + ' ' + errText.slice(0, 80), 'error');
@@ -534,5 +540,5 @@
     setTimeout(injectEditButtons, 300);
   });
 
-  console.log('[OpenCode WebUI] Gaslight v3 loaded');
+  console.log('[OpenCode WebUI] Gaslight v3.1 loaded (live no reload)');
 })();

@@ -49,12 +49,13 @@
 - **Cơ chế xác định phần tử chính xác 100%:**
   - Thay thế TreeWalker tìm text bằng selector chuẩn OpenCode: `[data-component="text-part"]` và `[data-component="reasoning-part"]` kết hợp `data-timeline-part-id`.
   - Tự động bật `showReasoningSummaries` trong localStorage `settings.v3` nếu đang bị tắt, giúp các khối thinking luôn được OpenCode hiển thị trên giao diện.
-- **Popup editor:**
+- **Popup editor & Cập nhật thời gian thực:**
   - Chỉnh sửa nội dung, Save gọi `PATCH /session/{sessionID}/message/{messageID}/part/{partID}` với đầy đủ full part object + new text.
+  - **Không cần F5/reload:** Sau khi Save thành công, OpenCode Core tự động phát SSE event cập nhật DOM tức thì, đã xóa bỏ hoàn toàn lệnh `window.location.reload()`.
   - Đóng an toàn: Chỉ đóng khi bấm Cancel hoặc phím Esc, kéo thả bôi đen văn bản hay bấm ra ngoài không bị đóng nhầm.
 - **Fix triệt để cache browser:**
   - Cập nhật `bin/cli.js` gửi header `Cache-Control: no-cache` riêng cho `/gaslight.js`.
-  - Thêm query string `/gaslight.js?v=3` trong `index.html`. Browser luôn nạp ngay code mới nhất khi reload.
+  - Thêm query string `/gaslight.js?v=4` trong `index.html`. Browser luôn nạp ngay code mới nhất khi reload.
 
 ---
 
