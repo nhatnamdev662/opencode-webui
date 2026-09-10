@@ -1,0 +1,21 @@
+{
+  "name": "opencode-webui",
+  "version": "1.0.0",
+  "description": "Modern, rich-featured custom Web UI for OpenCode",
+  "main": "bin/cli.js",
+  "bin": {
+    "opencode-webui": "./bin/cli.js"
+  },
+  "scripts": {
+    "build": "cd web && npm run build",
+    "start": "node bin/cli.js webui"
+  },
+  "keywords": [
+    "opencode",
+    "webui",
+    "ai",
+    "coding-agent"
+  ],
+  "author": "nhatnamdev662",
+  "license": "MIT"
+}
