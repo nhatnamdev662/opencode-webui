@@ -1,8 +1,9 @@
-// OpenCode WebUI Smart Auto-Pilot & Security Guard v1.0
-// - Event-driven SSE: Lắng nghe /global/event bắt trực tiếp sự kiện permission.asked realtime
-// - Smart Rule Engine: Whitelist lệnh an toàn (git status, test, read, inspect) và Blacklist lệnh nguy hiểm
-// - Cyber-HUD Floating Pill: Điều khiển chế độ (Smart / Full / Off), xem thống kê và Audit Log thời gian thực
-// - Zero DOM Conflict: Tự động gắn kết cô lập, không ảnh hưởng SolidJS của OpenCode
+// OpenCode WebUI Smart Auto-Pilot & Security Guard v2.0
+// - Seamless Native Integration: Tích hợp trực tiếp vào #opencode-titlebar-right cùng hàng với các action button gốc
+// - OpenCode Design System: Sử dụng đúng typography Inter, màu sắc, bo góc, layer background và shadow của OpenCode
+// - SSE Event-Driven: Bắt realtime sự kiện permission.asked từ /global/event
+// - Intelligent Rule Engine: Whitelist lệnh dev an toàn, Blacklist lệnh phá hoại nguy hiểm
+// - Non-intrusive HUD: Popover menu mở ngay dưới nút, đóng mở mượt mà
 
 (function() {
   'use strict';
@@ -43,7 +44,7 @@
 
   function saveLogs(logs) {
     try {
-      localStorage.setItem(LOGS_KEY, JSON.stringify(logs.slice(0, 60)));
+      localStorage.setItem(LOGS_KEY, JSON.stringify(logs.slice(0, 40)));
     } catch {}
   }
 
@@ -54,7 +55,7 @@
     panelOpen: false
   };
 
-  // Blacklist regex: Không bao giờ auto-approve
+  // Blacklist patterns: Tuyệt đối không auto-approve ở bất kỳ mode nào
   const DANGEROUS_PATTERNS = [
     /\b(rm\s+-[a-zA-Z]*r|rmdir|Remove-Item\s+.*-Recurse|del\s+\/s)\b/i,
     /\b(drop\s+(database|table|schema)|truncate\s+table)\b/i,
@@ -64,7 +65,7 @@
     /\b(format\s+[a-zA-Z]:|diskpart|reg\s+delete)\b/i
   ];
 
-  // Whitelist regex: Được duyệt trong chế độ 'smart'
+  // Whitelist patterns: Được duyệt tự động trong chế độ 'smart'
   const SAFE_PATTERNS = [
     /^git\s+(status|diff|log|branch|show|rev-parse|describe|check-ignore|config\s+--get)/i,
     /^(cat|ls|dir|find|grep|rg|findstr|head|tail|wc|pwd|echo|which|where)\b/i,
@@ -73,10 +74,9 @@
     /^node\s+(-v|--version|-e\s+["'].*["'])$/i
   ];
 
-  // Đánh giá quyền
   function evaluatePermission(req) {
     if (state.config.mode === 'off') {
-      return { approve: false, reason: 'Auto-Pilot tắt (Chế độ duyệt thủ công)' };
+      return { approve: false, reason: 'Chế độ duyệt tay (Manual Off)' };
     }
 
     const permType = (req.permission || req.action || '').toLowerCase();
@@ -85,28 +85,28 @@
     // Kiểm tra Blacklist trước
     for (const pattern of DANGEROUS_PATTERNS) {
       if (pattern.test(cmd)) {
-        return { approve: false, reason: 'Lệnh có rủi ro cao (trong danh sách cảnh báo an toàn)' };
+        return { approve: false, reason: 'Lệnh rủi ro cao (chặn bởi Blacklist)' };
       }
     }
 
-    // Quyền đọc file luôn an toàn
+    // Đọc file luôn an toàn
     if (permType === 'read' || permType === 'file_read') {
-      return { approve: true, reason: 'Đọc file dự án (An toàn)' };
+      return { approve: true, reason: 'Đọc tệp tin workspace' };
     }
 
-    // Chế độ Smart: Kiểm tra Whitelist
+    // Chế độ Smart
     if (state.config.mode === 'smart') {
       for (const pattern of SAFE_PATTERNS) {
         if (pattern.test(cmd.trim())) {
-          return { approve: true, reason: 'Lệnh an toàn trong Whitelist (' + pattern.source.slice(0, 25) + '...)' };
+          return { approve: true, reason: 'Lệnh an toàn trong Whitelist' };
         }
       }
       return { approve: false, reason: 'Cần xác nhận từ người dùng' };
     }
 
-    // Chế độ Full: Duyệt hết mọi thứ ngoại trừ Blacklist
+    // Chế độ Full
     if (state.config.mode === 'full') {
-      return { approve: true, reason: 'Chế độ Full-Auto đã kích hoạt' };
+      return { approve: true, reason: 'Chế độ Full Auto' };
     }
 
     return { approve: false, reason: 'Mặc định giữ lại' };
@@ -136,16 +136,16 @@
 
           addLog({
             id,
-            time: new Date().toLocaleTimeString(),
-            cmd: cmd.slice(0, 80),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            cmd: cmd.slice(0, 75),
             action: 'approved',
             reason: evaluation.reason
           });
 
           if (state.config.notify) {
-            showToast('⚡ Auto-Pilot approved: ' + cmd.slice(0, 40), 'success');
+            showToast('Auto-approved: ' + cmd.slice(0, 36), 'success');
           }
-          renderHUD();
+          renderTriggerBtn();
         }
       } catch (err) {
         console.error('[Auto-Pilot] Error replying permission:', err);
@@ -156,27 +156,26 @@
 
       addLog({
         id,
-        time: new Date().toLocaleTimeString(),
-        cmd: cmd.slice(0, 80),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        cmd: cmd.slice(0, 75),
         action: 'held',
         reason: evaluation.reason
       });
 
       if (state.config.mode !== 'off') {
-        showToast('🛡️ Giữ lệnh chờ duyệt: ' + cmd.slice(0, 35), 'warning');
+        showToast('Yêu cầu duyệt thủ công: ' + cmd.slice(0, 32), 'warning');
       }
-      renderHUD();
+      renderTriggerBtn();
     }
   }
 
   function addLog(item) {
     state.logs.unshift(item);
-    if (state.logs.length > 50) state.logs.pop();
+    if (state.logs.length > 40) state.logs.pop();
     saveLogs(state.logs);
     renderPanelContent();
   }
 
-  // Check pending permissions ban đầu
   async function pollPendingPermissions() {
     try {
       const res = await fetch('/permission');
@@ -191,18 +190,16 @@
     } catch {}
   }
 
-  // Kết nối SSE /global/event
   let eventSource = null;
   function connectSSE() {
-    if (eventSource) {
-      eventSource.close();
-    }
+    if (eventSource) eventSource.close();
 
     eventSource = new EventSource('/global/event');
 
     eventSource.onopen = function() {
       state.sseConnected = true;
-      renderHUD();
+      renderTriggerBtn();
+      renderPanelContent();
       pollPendingPermissions();
     };
 
@@ -210,445 +207,509 @@
       try {
         const data = JSON.parse(e.data);
         if (data.type === 'permission.asked' || data.type === 'permission.v2.asked') {
-          if (data.properties) {
-            handlePermission(data.properties);
-          }
+          if (data.properties) handlePermission(data.properties);
         }
       } catch {}
     };
 
     eventSource.onerror = function() {
       state.sseConnected = false;
-      renderHUD();
+      renderTriggerBtn();
+      renderPanelContent();
       setTimeout(connectSSE, 5000);
     };
   }
 
-  // UI STYLES
+  // STYLES: Hoàn toàn đồng bộ với OpenCode UI
   const STYLE = document.createElement('style');
   STYLE.textContent = `
-    .opencode-autopilot-hud {
-      position: fixed;
-      top: 10px;
-      right: 85px;
-      z-index: 99990;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      user-select: none;
-    }
-    .autopilot-pill {
+    /* Nút kích hoạt trên thanh Titlebar */
+    .opencode-autopilot-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       height: 28px;
-      padding: 0 10px;
-      border-radius: 14px;
-      font-size: 11.5px;
+      padding: 0 8px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 500;
-      color: #e6edf3;
-      background: rgba(22, 27, 34, 0.85);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(240, 246, 252, 0.12);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--v2-text-secondary, #a1a1a1);
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.08);
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+      margin-right: 6px;
     }
-    .autopilot-pill:hover {
-      background: rgba(33, 38, 45, 0.95);
-      border-color: rgba(240, 246, 252, 0.25);
-      transform: translateY(-1px);
+    .opencode-autopilot-btn:hover {
+      color: var(--v2-text-primary, #ffffff);
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.16);
     }
-    .autopilot-led {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #238636;
-      box-shadow: 0 0 6px #2ea043;
-      display: inline-block;
-    }
-    .autopilot-led.smart {
-      background: #2ea043;
-      box-shadow: 0 0 7px #2ea043;
-      animation: autopilot-pulse 2.2s infinite ease-in-out;
-    }
-    .autopilot-led.full {
-      background: #1f6feb;
-      box-shadow: 0 0 7px #58a6ff;
-      animation: autopilot-pulse 1.6s infinite ease-in-out;
-    }
-    .autopilot-led.off {
-      background: #6e7681;
-      box-shadow: none;
-      animation: none;
-    }
-    .autopilot-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 16px;
-      height: 16px;
-      padding: 0 4px;
-      border-radius: 8px;
-      background: rgba(56, 139, 253, 0.2);
-      color: #58a6ff;
-      font-size: 10px;
-      font-weight: 600;
-    }
-    @keyframes autopilot-pulse {
-      0%, 100% { opacity: 0.9; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.85); }
+    .opencode-autopilot-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
     }
 
-    /* DROPDOWN PANEL */
-    .autopilot-panel {
-      position: absolute;
-      top: 36px;
-      right: 0;
-      width: 330px;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 10px;
-      box-shadow: 0 16px 36px rgba(0,0,0,0.6);
+    /* Đèn trạng thái chấm tròn */
+    .opencode-autopilot-dot {
+      width: 6.5px;
+      height: 6.5px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .opencode-autopilot-dot.smart {
+      background: #46c764;
+      box-shadow: 0 0 6px rgba(70, 199, 100, 0.5);
+    }
+    .opencode-autopilot-dot.full {
+      background: #4f8bf9;
+      box-shadow: 0 0 6px rgba(79, 139, 249, 0.5);
+    }
+    .opencode-autopilot-dot.off {
+      background: #737373;
+    }
+
+    /* Badge số lượng */
+    .opencode-autopilot-counter {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #e5e5e5;
+      line-height: 1.2;
+    }
+
+    /* POPOVER CONTAINER */
+    .opencode-autopilot-popover {
+      position: fixed;
+      z-index: 99999;
+      width: 320px;
+      background: var(--v2-background-bg-layer-02, #181818);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
       display: none;
       flex-direction: column;
       overflow: hidden;
-      color: #c9d1d9;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #d4d4d4;
       font-size: 12px;
-      animation: autopilot-dropdown 0.15s ease-out;
+      animation: opencode-popover-in 0.12s ease-out;
     }
-    .autopilot-panel.show {
+    .opencode-autopilot-popover.show {
       display: flex;
     }
-    @keyframes autopilot-dropdown {
-      from { opacity: 0; transform: translateY(-6px); }
+    @keyframes opencode-popover-in {
+      from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .autopilot-panel-header {
-      padding: 10px 14px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+
+    /* Popover Header */
+    .opencode-popover-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .autopilot-panel-title {
+    .opencode-popover-title {
       font-weight: 600;
-      color: #f0f6fc;
-      font-size: 12.5px;
+      color: #f5f5f5;
+      font-size: 12px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    .autopilot-mode-selector {
-      display: flex;
-      padding: 10px 14px;
-      gap: 6px;
-      background: #0d1117;
-      border-bottom: 1px solid #21262d;
-    }
-    .autopilot-mode-btn {
-      flex: 1;
-      padding: 6px 0;
-      font-size: 11px;
+    .opencode-popover-status {
+      font-size: 10.5px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .opencode-popover-status.online {
+      color: #46c764;
+    }
+    .opencode-popover-status.offline {
+      color: #a3a3a3;
+    }
+
+    /* Segmented Mode Selector */
+    .opencode-mode-wrap {
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .opencode-segmented {
+      display: flex;
+      background: rgba(0, 0, 0, 0.35);
       border-radius: 6px;
-      border: 1px solid #30363d;
-      background: #161b22;
-      color: #8b949e;
+      padding: 2.5px;
+      gap: 2px;
+    }
+    .opencode-seg-btn {
+      flex: 1;
+      padding: 5px 0;
+      font-size: 11.5px;
+      font-weight: 500;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: #a3a3a3;
       cursor: pointer;
       text-align: center;
-      transition: all 0.15s;
+      transition: all 0.12s ease;
+      font-family: inherit;
     }
-    .autopilot-mode-btn:hover {
-      color: #c9d1d9;
-      border-color: #8b949e;
+    .opencode-seg-btn:hover {
+      color: #ffffff;
     }
-    .autopilot-mode-btn.active.smart {
-      background: rgba(46, 160, 67, 0.18);
-      border-color: #2ea043;
-      color: #3fb950;
+    .opencode-seg-btn.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
-    .autopilot-mode-btn.active.full {
-      background: rgba(31, 111, 235, 0.18);
-      border-color: #388bfd;
-      color: #58a6ff;
-    }
-    .autopilot-mode-btn.active.off {
-      background: rgba(110, 118, 129, 0.2);
-      border-color: #6e7681;
-      color: #e6edf3;
-    }
-    .autopilot-stats {
-      display: flex;
-      padding: 8px 14px;
-      background: #161b22;
+    .opencode-mode-desc {
       font-size: 11px;
-      color: #8b949e;
+      color: #8a8a8a;
+      margin-top: 6px;
+      line-height: 1.35;
+      min-height: 28px;
+    }
+
+    /* Stats Bar */
+    .opencode-stats-grid {
+      display: flex;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.15);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       justify-content: space-between;
-      border-bottom: 1px solid #21262d;
+      font-size: 11px;
     }
-    .autopilot-logs-container {
-      max-height: 200px;
+    .opencode-stats-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #8a8a8a;
+    }
+    .opencode-stats-val {
+      font-weight: 600;
+    }
+    .opencode-stats-val.green { color: #46c764; }
+    .opencode-stats-val.yellow { color: #f59e0b; }
+
+    /* Logs List */
+    .opencode-log-list {
+      max-height: 160px;
       overflow-y: auto;
-      padding: 6px 0;
+      padding: 4px 0;
     }
-    .autopilot-log-row {
-      padding: 6px 14px;
+    .opencode-log-item {
+      padding: 6px 12px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
+      gap: 1.5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      transition: background 0.1s;
     }
-    .autopilot-log-row:hover {
-      background: rgba(255,255,255,0.02);
+    .opencode-log-item:hover {
+      background: rgba(255, 255, 255, 0.03);
     }
-    .autopilot-log-top {
+    .opencode-log-row-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-family: monospace;
+      gap: 8px;
+    }
+    .opencode-log-cmd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
-    }
-    .autopilot-log-tag {
-      font-size: 9.5px;
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .autopilot-log-tag.approved {
-      background: rgba(46, 160, 67, 0.15);
-      color: #3fb950;
-      border: 1px solid rgba(46, 160, 67, 0.3);
-    }
-    .autopilot-log-tag.held {
-      background: rgba(210, 153, 34, 0.15);
-      color: #e3b341;
-      border: 1px solid rgba(210, 153, 34, 0.3);
-    }
-    .autopilot-log-cmd {
-      color: #e6edf3;
+      color: #e5e5e5;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
+      max-width: 215px;
     }
-    .autopilot-log-reason {
+    .opencode-log-pill {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .opencode-log-pill.approved {
+      background: rgba(70, 199, 100, 0.12);
+      color: #46c764;
+    }
+    .opencode-log-pill.held {
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+    }
+    .opencode-log-meta {
       font-size: 10px;
-      color: #6e7681;
+      color: #737373;
     }
-    .autopilot-empty-log {
+    .opencode-log-empty {
       padding: 24px;
       text-align: center;
-      color: #6e7681;
-      font-size: 11px;
+      color: #737373;
+      font-size: 11.5px;
     }
-    .autopilot-panel-footer {
-      padding: 8px 14px;
-      background: #161b22;
-      border-top: 1px solid #30363d;
+
+    /* Popover Footer */
+    .opencode-popover-footer {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-size: 11px;
+      background: rgba(0, 0, 0, 0.15);
     }
-    .autopilot-clear-btn {
-      background: none;
+    .opencode-toggle-lbl {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      color: #a3a3a3;
+      user-select: none;
+    }
+    .opencode-toggle-lbl input {
+      accent-color: #46c764;
+      cursor: pointer;
+    }
+    .opencode-btn-text {
+      background: transparent;
       border: none;
-      color: #8b949e;
+      color: #737373;
       cursor: pointer;
       font-size: 11px;
-      padding: 2px 6px;
+      font-family: inherit;
+      padding: 2px 4px;
       border-radius: 4px;
+      transition: color 0.12s;
     }
-    .autopilot-clear-btn:hover {
-      color: #f85149;
+    .opencode-btn-text:hover {
+      color: #f87171;
     }
 
-    /* TOAST */
-    .autopilot-toast {
+    /* TOAST THÔNG BÁO */
+    .opencode-autopilot-toast {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: rgba(13, 17, 23, 0.95);
-      color: #f0f6fc;
-      border: 1px solid #30363d;
-      border-left: 3px solid #2ea043;
-      padding: 10px 16px;
+      bottom: 20px;
+      right: 20px;
+      background: var(--v2-background-bg-layer-02, #1f1f1f);
+      color: #f5f5f5;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-left: 3px solid #46c764;
+      padding: 8px 14px;
       border-radius: 6px;
-      font-size: 12px;
-      font-family: monospace;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      font-size: 11.5px;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
       z-index: 99999;
       pointer-events: none;
-      animation: autopilot-toast-in 0.2s ease-out;
+      animation: opencode-toast-up 0.15s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .autopilot-toast.warning {
-      border-left-color: #d29922;
+    .opencode-autopilot-toast.warning {
+      border-left-color: #f59e0b;
     }
-    @keyframes autopilot-toast-in {
-      from { opacity: 0; transform: translateY(10px); }
+    @keyframes opencode-toast-up {
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
   `;
   document.head.appendChild(STYLE);
 
-  function showToast(text, type = 'success') {
+  function showToast(msg, type = 'success') {
     const el = document.createElement('div');
-    el.className = 'autopilot-toast ' + type;
-    el.textContent = text;
+    el.className = 'opencode-autopilot-toast ' + type;
+    el.innerHTML = `<span>${type === 'success' ? '⚡' : '🛡️'}</span><span>${msg}</span>`;
     document.body.appendChild(el);
     setTimeout(() => {
       el.style.opacity = '0';
-      el.style.transition = 'opacity 0.3s ease';
-      setTimeout(() => el.remove(), 300);
-    }, 2800);
+      el.style.transition = 'opacity 0.25s ease';
+      setTimeout(() => el.remove(), 250);
+    }, 2500);
   }
 
-  // Mount UI
-  let hudContainer = null;
-  let pillEl = null;
-  let panelEl = null;
+  // Icons SVG
+  const SHIELD_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
 
-  function initUI() {
-    if (document.getElementById('opencode-autopilot-root')) return;
+  let triggerBtn = null;
+  let popoverEl = null;
 
-    hudContainer = document.createElement('div');
-    hudContainer.id = 'opencode-autopilot-root';
-    hudContainer.className = 'opencode-autopilot-hud';
-
-    pillEl = document.createElement('div');
-    pillEl.className = 'autopilot-pill';
-    pillEl.title = 'OpenCode Auto-Pilot & Security Guard';
-
-    panelEl = document.createElement('div');
-    panelEl.className = 'autopilot-panel';
-
-    hudContainer.appendChild(pillEl);
-    hudContainer.appendChild(panelEl);
-    document.body.appendChild(hudContainer);
-
-    pillEl.addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.panelOpen = !state.panelOpen;
-      renderPanel();
-    });
+  function createPopover() {
+    if (popoverEl) return popoverEl;
+    popoverEl = document.createElement('div');
+    popoverEl.className = 'opencode-autopilot-popover';
+    document.body.appendChild(popoverEl);
 
     document.addEventListener('click', (e) => {
-      if (state.panelOpen && !hudContainer.contains(e.target)) {
-        state.panelOpen = false;
-        renderPanel();
+      if (state.panelOpen && triggerBtn && !triggerBtn.contains(e.target) && !popoverEl.contains(e.target)) {
+        closePopover();
       }
     });
 
-    renderHUD();
-    renderPanelContent();
+    window.addEventListener('resize', () => {
+      if (state.panelOpen) positionPopover();
+    });
+
+    return popoverEl;
   }
 
-  function renderHUD() {
-    if (!pillEl) return;
+  function positionPopover() {
+    if (!triggerBtn || !popoverEl) return;
+    const rect = triggerBtn.getBoundingClientRect();
+    const popoverWidth = 320;
+    let right = window.innerWidth - rect.right;
+    if (right < 10) right = 10;
+    const top = rect.bottom + 6;
+
+    popoverEl.style.top = top + 'px';
+    popoverEl.style.right = right + 'px';
+  }
+
+  function togglePopover() {
+    state.panelOpen = !state.panelOpen;
+    if (state.panelOpen) {
+      createPopover();
+      renderPanelContent();
+      positionPopover();
+      popoverEl.classList.add('show');
+      triggerBtn?.classList.add('active');
+    } else {
+      closePopover();
+    }
+  }
+
+  function closePopover() {
+    state.panelOpen = false;
+    popoverEl?.classList.remove('show');
+    triggerBtn?.classList.remove('active');
+  }
+
+  function renderTriggerBtn() {
+    if (!triggerBtn) return;
     const mode = state.config.mode;
     const count = state.config.autoApproveCount || 0;
     const modeLabel = mode === 'smart' ? 'Smart' : mode === 'full' ? 'Full' : 'Off';
 
-    pillEl.innerHTML = `
-      <span class="autopilot-led ${mode}"></span>
+    triggerBtn.innerHTML = `
+      ${SHIELD_SVG}
+      <span class="opencode-autopilot-dot ${mode}"></span>
       <span>Auto-Pilot: <b>${modeLabel}</b></span>
-      ${count > 0 ? `<span class="autopilot-badge">${count}</span>` : ''}
+      ${count > 0 ? `<span class="opencode-autopilot-counter">${count}</span>` : ''}
     `;
+    triggerBtn.title = `Auto-Pilot: ${mode.toUpperCase()} (Click to configure)`;
   }
 
-  function renderPanel() {
-    if (!panelEl) return;
-    if (state.panelOpen) {
-      panelEl.classList.add('show');
-      renderPanelContent();
-    } else {
-      panelEl.classList.remove('show');
+  function getModeDescription(mode) {
+    switch (mode) {
+      case 'smart':
+        return 'Tự động duyệt lệnh an toàn (git status, diff, test, lint, read). Giữ lệnh rủi ro.';
+      case 'full':
+        return 'Tự động duyệt tất cả các lệnh thông thường. Chỉ chặn lệnh phá hoại (rm, push -f).';
+      case 'off':
+        return 'Tắt chế độ tự động. Xác nhận từng câu lệnh thủ công như giao diện gốc.';
+      default:
+        return '';
     }
   }
 
   function renderPanelContent() {
-    if (!panelEl) return;
-    const currentMode = state.config.mode;
+    if (!popoverEl) return;
+    const curMode = state.config.mode;
 
-    panelEl.innerHTML = `
-      <div class="autopilot-panel-header">
-        <div class="autopilot-panel-title">
-          <span>🛡️ Auto-Pilot & Security Guard</span>
+    popoverEl.innerHTML = `
+      <div class="opencode-popover-header">
+        <div class="opencode-popover-title">
+          ${SHIELD_SVG}
+          <span>Auto-Pilot & Security</span>
         </div>
-        <div style="font-size: 10px; color: ${state.sseConnected ? '#3fb950' : '#8b949e'}">
-          ${state.sseConnected ? '● Live' : '○ Connecting'}
+        <div class="opencode-popover-status ${state.sseConnected ? 'online' : 'offline'}">
+          ● <span>${state.sseConnected ? 'SSE Live' : 'Connecting'}</span>
         </div>
       </div>
 
-      <div class="autopilot-mode-selector">
-        <button class="autopilot-mode-btn smart ${currentMode === 'smart' ? 'active' : ''}" data-mode="smart">
-          Smart Safe
-        </button>
-        <button class="autopilot-mode-btn full ${currentMode === 'full' ? 'active' : ''}" data-mode="full">
-          Full Auto
-        </button>
-        <button class="autopilot-mode-btn off ${currentMode === 'off' ? 'active' : ''}" data-mode="off">
-          Manual Off
-        </button>
+      <div class="opencode-mode-wrap">
+        <div class="opencode-segmented">
+          <button class="opencode-seg-btn ${curMode === 'smart' ? 'active' : ''}" data-mode="smart">Smart Safe</button>
+          <button class="opencode-seg-btn ${curMode === 'full' ? 'active' : ''}" data-mode="full">Full Auto</button>
+          <button class="opencode-seg-btn ${curMode === 'off' ? 'active' : ''}" data-mode="off">Manual Off</button>
+        </div>
+        <div class="opencode-mode-desc">
+          ${getModeDescription(curMode)}
+        </div>
       </div>
 
-      <div class="autopilot-stats">
-        <span>Đã duyệt tự động: <b style="color:#3fb950">${state.config.autoApproveCount}</b></span>
-        <span>Giữ duyệt tay: <b style="color:#e3b341">${state.config.blockedCount}</b></span>
+      <div class="opencode-stats-grid">
+        <div class="opencode-stats-item">
+          <span>Tự duyệt:</span>
+          <span class="opencode-stats-val green">${state.config.autoApproveCount}</span>
+        </div>
+        <div class="opencode-stats-item">
+          <span>Chờ duyệt tay:</span>
+          <span class="opencode-stats-val yellow">${state.config.blockedCount}</span>
+        </div>
       </div>
 
-      <div class="autopilot-logs-container">
+      <div class="opencode-log-list">
         ${state.logs.length === 0 ? `
-          <div class="autopilot-empty-log">Chưa có hoạt động nào được ghi lại.</div>
+          <div class="opencode-log-empty">Chưa có hoạt động nào được ghi lại.</div>
         ` : state.logs.map(log => `
-          <div class="autopilot-log-row">
-            <div class="autopilot-log-top">
-              <span class="autopilot-log-cmd" title="${log.cmd}">${log.cmd}</span>
-              <span class="autopilot-log-tag ${log.action}">${log.action === 'approved' ? 'Approved' : 'Held'}</span>
+          <div class="opencode-log-item">
+            <div class="opencode-log-row-top">
+              <span class="opencode-log-cmd" title="${log.cmd}">${log.cmd}</span>
+              <span class="opencode-log-pill ${log.action}">${log.action === 'approved' ? 'Approved' : 'Held'}</span>
             </div>
-            <div class="autopilot-log-reason">
+            <div class="opencode-log-meta">
               ${log.time} • ${log.reason}
             </div>
           </div>
         `).join('')}
       </div>
 
-      <div class="autopilot-panel-footer">
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-          <input type="checkbox" id="autopilot-notify-chk" ${state.config.notify ? 'checked' : ''} />
+      <div class="opencode-popover-footer">
+        <label class="opencode-toggle-lbl">
+          <input type="checkbox" id="opencode-autopilot-toast-toggle" ${state.config.notify ? 'checked' : ''} />
           <span>Thông báo Toast</span>
         </label>
-        <button class="autopilot-clear-btn" id="autopilot-clear-logs">Xóa lịch sử</button>
+        <button class="opencode-btn-text" id="opencode-autopilot-clear">Xóa lịch sử</button>
       </div>
     `;
 
-    // Event listeners cho panel
-    panelEl.querySelectorAll('.autopilot-mode-btn').forEach(btn => {
+    popoverEl.querySelectorAll('.opencode-seg-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const m = btn.getAttribute('data-mode');
         state.config.mode = m;
         saveConfig(state.config);
-        renderHUD();
+        renderTriggerBtn();
         renderPanelContent();
-        showToast('Auto-Pilot chuyển sang: ' + m.toUpperCase(), 'success');
+        showToast('Chuyển sang chế độ: ' + m.toUpperCase(), 'success');
       });
     });
 
-    const notifyChk = panelEl.querySelector('#autopilot-notify-chk');
-    if (notifyChk) {
-      notifyChk.addEventListener('change', (e) => {
+    const chk = popoverEl.querySelector('#opencode-autopilot-toast-toggle');
+    if (chk) {
+      chk.addEventListener('change', (e) => {
         state.config.notify = e.target.checked;
         saveConfig(state.config);
       });
     }
 
-    const clearBtn = panelEl.querySelector('#autopilot-clear-logs');
+    const clearBtn = popoverEl.querySelector('#opencode-autopilot-clear');
     if (clearBtn) {
       clearBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -657,24 +718,78 @@
         state.config.blockedCount = 0;
         saveConfig(state.config);
         saveLogs(state.logs);
-        renderHUD();
+        renderTriggerBtn();
         renderPanelContent();
       });
     }
   }
 
-  // Khởi động
-  function start() {
-    initUI();
+  // Gắn nút Auto-Pilot trực tiếp vào OpenCode Titlebar Right Container
+  function attachButtonToTitlebar() {
+    // Xóa HUD cũ nếu có
+    const oldHud = document.getElementById('opencode-autopilot-root');
+    if (oldHud) oldHud.remove();
+
+    // Tìm container action bên phải của header: #opencode-titlebar-right .flex.items-center.gap-2
+    const targetGroup = document.querySelector('#opencode-titlebar-right .flex.items-center.gap-2') 
+      || document.querySelector('#opencode-titlebar-right')
+      || document.querySelector('header .relative.z-20');
+
+    if (!targetGroup) return false;
+
+    // Nếu nút đã tồn tại trong targetGroup, không tạo lại
+    if (targetGroup.querySelector('#opencode-autopilot-trigger')) return true;
+
+    if (!triggerBtn) {
+      triggerBtn = document.createElement('button');
+      triggerBtn.id = 'opencode-autopilot-trigger';
+      triggerBtn.type = 'button';
+      triggerBtn.className = 'opencode-autopilot-btn';
+      triggerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePopover();
+      });
+    }
+
+    // Chèn trước nút Toggle review nếu có, hoặc prepend vào targetGroup
+    const toggleReview = targetGroup.querySelector('[aria-label="Toggle review"]')?.parentElement;
+    if (toggleReview) {
+      targetGroup.insertBefore(triggerBtn, toggleReview);
+    } else {
+      targetGroup.prepend(triggerBtn);
+    }
+
+    renderTriggerBtn();
+    return true;
+  }
+
+  // Observer theo dõi DOM để bảo toàn vị trí khi OpenCode re-render
+  let observer = null;
+  function startObserver() {
+    if (observer) return;
+    observer = new MutationObserver(() => {
+      const exists = document.getElementById('opencode-autopilot-trigger');
+      if (!exists) {
+        attachButtonToTitlebar();
+      }
+    });
+
+    const header = document.querySelector('header') || document.body;
+    observer.observe(header, { childList: true, subtree: true });
+  }
+
+  function init() {
+    attachButtonToTitlebar();
+    startObserver();
     connectSSE();
     setInterval(pollPendingPermissions, 3000);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    start();
+    init();
   }
 
-  console.log('[OpenCode WebUI] Smart Auto-Pilot & Security Guard v1.0 initialized');
+  console.log('[OpenCode WebUI] Smart Auto-Pilot & Security Guard v2.0 (Native Integration) loaded');
 })();
