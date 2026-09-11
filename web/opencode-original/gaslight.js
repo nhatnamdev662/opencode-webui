@@ -1266,22 +1266,46 @@
     }
   }
 
-  function injectContextPanelCompactBtn(session) {
+  async function injectContextPanelCompactBtn() {
+    const sessionID = getCurrentSessionID();
+    if (!sessionID) return;
+
     const buttons = Array.from(document.querySelectorAll('button'));
-    const exportBtn = buttons.find(b => b.innerText?.toLowerCase().includes('export session'));
+    const exportBtn = buttons.find(b => {
+      const txt = (b.innerText || '').toLowerCase().trim();
+      const href = b.querySelector('use')?.getAttribute('href') || '';
+      return txt.includes('export session') || txt.includes('xuất phiên') || txt.includes('xuat phien') || href.includes('download');
+    });
     if (!exportBtn) return;
 
     const parent = exportBtn.parentElement;
     if (!parent || parent.querySelector('#opencode-panel-compact-btn')) return;
 
+    const isVi = document.documentElement.lang?.includes('vi') || exportBtn.innerText.includes('phiên') || exportBtn.innerText.includes('Xuất');
+    const label = isVi ? 'Nén ngữ cảnh' : 'Compact session';
+
     const compactBtn = document.createElement('button');
     compactBtn.id = 'opencode-panel-compact-btn';
     compactBtn.className = 'opencode-panel-compact-btn';
     compactBtn.type = 'button';
-    compactBtn.innerHTML = '⚡ <span>Nén ngữ cảnh</span>';
+    compactBtn.title = isVi ? 'Tóm tắt và nén ngữ cảnh phiên làm việc này' : 'Summarize and reduce context size';
+    compactBtn.innerHTML = `⚡ <span>${label}</span>`;
 
-    compactBtn.addEventListener('click', (e) => {
+    compactBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
       e.stopPropagation();
+
+      let session = window.__OPENCODE_SESSIONS__?.[sessionID];
+      if (!session || !session.model) {
+        try {
+          const r = await originalFetch('/session/' + encodeURIComponent(sessionID));
+          if (r.ok) {
+            session = await r.json();
+            window.__OPENCODE_SESSIONS__[sessionID] = session;
+          }
+        } catch {}
+      }
+
       compactSession(session, compactBtn);
     });
 
@@ -1406,6 +1430,7 @@
       checkSessionChange();
       injectEditButtons();
       unblockAutoAcceptSwitch();
+      injectContextPanelCompactBtn();
       renderContextHUD();
     });
   });
