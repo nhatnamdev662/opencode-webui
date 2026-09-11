@@ -68,6 +68,9 @@
     .gaslight-btn-chat {
       margin-left: 2px;
     }
+    .gaslight-btn-fork {
+      margin-left: 4px;
+    }
     .gaslight-reasoning-footer {
       display: flex;
       align-items: center;
@@ -233,6 +236,7 @@
   document.head.appendChild(STYLE);
 
   const PENCIL_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L3.462 11.1a.25.25 0 00-.064.108l-.631 2.208 2.208-.63a.25.25 0 00.108-.064l8.61-8.61a.25.25 0 000-.354l-1.086-1.086z"/></svg>';
+  const FORK_SVG = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><path d="M4 6v4"></path><path d="M4 7c0 2 2 3 4 3h2"></path></svg>';
 
   function showToast(message, type) {
     const t = document.createElement('div');
@@ -610,45 +614,155 @@
     }
   }
 
+  async function handleForkClick(sessionID, messageID, btn) {
+    if (!sessionID || !messageID) {
+      showToast('Không tìm thấy ID tin nhắn để fork', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = FORK_SVG + '<span>Forking...</span>';
+
+    try {
+      const resp = await originalFetch('/session/' + encodeURIComponent(sessionID) + '/fork', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageID: messageID })
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi server: ' + resp.status);
+      }
+
+      const newSession = await resp.json();
+      showToast('Phân nhánh thành công: ' + (newSession.title || newSession.id), 'success');
+
+      // Chuyển hướng sang session mới
+      const currentPath = window.location.pathname;
+      let newPath = '';
+      if (currentPath.includes('/session/')) {
+        newPath = currentPath.replace(/\/session\/[^\/]+/, '/session/' + newSession.id);
+      } else {
+        newPath = '/session/' + newSession.id;
+      }
+
+      setTimeout(() => {
+        window.location.href = newPath;
+      }, 350);
+    } catch (err) {
+      showToast('Lỗi khi phân nhánh: ' + err.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
+  }
+
   function injectEditButtons() {
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
+
+    // 0. User messages -> thêm nút Fork to new session
+    const userWrappers = document.querySelectorAll('[data-slot="user-message-copy-wrapper"]');
+    userWrappers.forEach(wrapper => {
+      const msgEl = wrapper.closest('[data-message-id]');
+      const messageID = msgEl?.getAttribute('data-message-id') || msgEl?.id?.replace(/^message-/, '');
+      if (!messageID || wrapper.querySelector('[data-gaslight-fork]')) return;
+
+      const forkBtn = document.createElement('button');
+      forkBtn.className = 'gaslight-btn gaslight-btn-fork';
+      forkBtn.setAttribute('data-gaslight-fork', messageID);
+      forkBtn.setAttribute('type', 'button');
+      forkBtn.title = 'Fork session from this message';
+      forkBtn.innerHTML = FORK_SVG + '<span>Fork</span>';
+
+      forkBtn.addEventListener('mousedown', e => e.stopPropagation());
+      forkBtn.addEventListener('mouseup', e => e.stopPropagation());
+      forkBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleForkClick(sessionID, messageID, forkBtn);
+      });
+
+      wrapper.appendChild(forkBtn);
+    });
 
     // 1. Assistant text parts (chat messages) -> đặt ở DƯỚI đoạn chat của agent
     const textEls = document.querySelectorAll('[data-component="text-part"][data-timeline-part-id]');
     textEls.forEach(el => {
       const partId = el.getAttribute('data-timeline-part-id');
-      if (!partId || el.querySelector('[data-gaslight-part="' + partId + '"]')) return;
+      const msgEl = el.closest('[data-message-id]');
+      const messageID = msgEl?.getAttribute('data-message-id') || partCache.get(partId)?.message?.info?.id;
 
-      const btn = document.createElement('button');
-      btn.className = 'gaslight-btn gaslight-btn-chat';
-      btn.setAttribute('data-gaslight-part', partId);
-      btn.setAttribute('type', 'button');
-      btn.title = 'Edit assistant response';
-      btn.innerHTML = PENCIL_SVG + '<span>Edit</span>';
+      if (partId && !el.querySelector('[data-gaslight-part="' + partId + '"]')) {
+        const btn = document.createElement('button');
+        btn.className = 'gaslight-btn gaslight-btn-chat';
+        btn.setAttribute('data-gaslight-part', partId);
+        btn.setAttribute('type', 'button');
+        btn.title = 'Edit assistant response';
+        btn.innerHTML = PENCIL_SVG + '<span>Edit</span>';
 
-      btn.addEventListener('mousedown', e => e.stopPropagation());
-      btn.addEventListener('mouseup', e => e.stopPropagation());
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleEditClick(sessionID, partId, 'text', btn);
-      });
+        btn.addEventListener('mousedown', e => e.stopPropagation());
+        btn.addEventListener('mouseup', e => e.stopPropagation());
+        btn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleEditClick(sessionID, partId, 'text', btn);
+        });
 
-      const copyWrapper = el.querySelector('[data-slot="text-part-copy-wrapper"]');
-      if (copyWrapper) {
-        const copyTrigger = copyWrapper.querySelector('[data-component="tooltip-v2-trigger"]');
-        if (copyTrigger) {
-          copyTrigger.after(btn);
+        const copyWrapper = el.querySelector('[data-slot="text-part-copy-wrapper"]');
+        if (copyWrapper) {
+          const copyTrigger = copyWrapper.querySelector('[data-component="tooltip-v2-trigger"]');
+          if (copyTrigger) {
+            copyTrigger.after(btn);
+          } else {
+            copyWrapper.appendChild(btn);
+          }
+
+          // Thêm nút Fork cho Assistant message
+          if (messageID && !copyWrapper.querySelector('[data-gaslight-fork]')) {
+            const forkBtn = document.createElement('button');
+            forkBtn.className = 'gaslight-btn gaslight-btn-fork';
+            forkBtn.setAttribute('data-gaslight-fork', messageID);
+            forkBtn.setAttribute('type', 'button');
+            forkBtn.title = 'Fork session from this response';
+            forkBtn.innerHTML = FORK_SVG + '<span>Fork</span>';
+
+            forkBtn.addEventListener('mousedown', e => e.stopPropagation());
+            forkBtn.addEventListener('mouseup', e => e.stopPropagation());
+            forkBtn.addEventListener('click', e => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleForkClick(sessionID, messageID, forkBtn);
+            });
+
+            btn.after(forkBtn);
+          }
         } else {
-          copyWrapper.appendChild(btn);
+          const body = el.querySelector('[data-slot="text-part-body"]') || el;
+          const footer = document.createElement('div');
+          footer.className = 'gaslight-text-footer';
+          footer.appendChild(btn);
+
+          if (messageID) {
+            const forkBtn = document.createElement('button');
+            forkBtn.className = 'gaslight-btn gaslight-btn-fork';
+            forkBtn.setAttribute('data-gaslight-fork', messageID);
+            forkBtn.setAttribute('type', 'button');
+            forkBtn.title = 'Fork session from this response';
+            forkBtn.innerHTML = FORK_SVG + '<span>Fork</span>';
+            forkBtn.addEventListener('mousedown', e => e.stopPropagation());
+            forkBtn.addEventListener('mouseup', e => e.stopPropagation());
+            forkBtn.addEventListener('click', e => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleForkClick(sessionID, messageID, forkBtn);
+            });
+            footer.appendChild(forkBtn);
+          }
+
+          body.after(footer);
         }
-      } else {
-        const body = el.querySelector('[data-slot="text-part-body"]') || el;
-        const footer = document.createElement('div');
-        footer.className = 'gaslight-text-footer';
-        footer.appendChild(btn);
-        body.after(footer);
       }
     });
 
