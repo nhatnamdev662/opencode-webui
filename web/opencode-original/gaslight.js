@@ -614,8 +614,8 @@
     }
   }
 
-  async function handleForkClick(sessionID, messageID, btn) {
-    if (!sessionID || !messageID) {
+  async function handleForkClick(sessionID, targetMessageID, btn) {
+    if (!sessionID || !targetMessageID) {
       showToast('Không tìm thấy ID tin nhắn để fork', 'error');
       return;
     }
@@ -625,10 +625,36 @@
     btn.innerHTML = FORK_SVG + '<span>Forking...</span>';
 
     try {
+      // Lấy danh sách tin nhắn để xác định đúng điểm cắt (inclusive)
+      let messages = [];
+      try {
+        const mResp = await originalFetch('/session/' + encodeURIComponent(sessionID) + '/message');
+        if (mResp.ok) messages = await mResp.json();
+      } catch {}
+
+      let forkPayload = {};
+      const targetIdx = messages.findIndex(m => m?.info?.id === targetMessageID);
+
+      if (targetIdx !== -1) {
+        if (targetIdx < messages.length - 1) {
+          // OpenCode Core cắt TRƯỚC messageID được chỉ định,
+          // nên truyền message kế tiếp để giữ trọn vẹn đến hết tin nhắn đã bấm
+          const nextMsg = messages[targetIdx + 1];
+          if (nextMsg?.info?.id) {
+            forkPayload = { messageID: nextMsg.info.id };
+          }
+        } else {
+          // Nếu bấm ở tin nhắn cuối cùng, không truyền messageID để clone toàn bộ
+          forkPayload = {};
+        }
+      } else {
+        forkPayload = { messageID: targetMessageID };
+      }
+
       const resp = await originalFetch('/session/' + encodeURIComponent(sessionID) + '/fork', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageID: messageID })
+        body: JSON.stringify(forkPayload)
       });
 
       if (!resp.ok) {
@@ -639,7 +665,7 @@
       const newSession = await resp.json();
       showToast('Phân nhánh thành công: ' + (newSession.title || newSession.id), 'success');
 
-      // Chuyển hướng sang session mới
+      // Chuyển hướng tức thì 0ms qua SPA router (không reload trang gây chậm)
       const currentPath = window.location.pathname;
       let newPath = '';
       if (currentPath.includes('/session/')) {
@@ -648,9 +674,20 @@
         newPath = '/session/' + newSession.id;
       }
 
+      // Kích hoạt SPA navigation bằng thẻ <a> nội bộ
+      const spaLink = document.createElement('a');
+      spaLink.href = newPath;
+      spaLink.style.display = 'none';
+      document.body.appendChild(spaLink);
+      spaLink.click();
+      spaLink.remove();
+
+      // Fallback an toàn nếu sau 500ms URL chưa đổi
       setTimeout(() => {
-        window.location.href = newPath;
-      }, 350);
+        if (!window.location.pathname.includes(newSession.id)) {
+          window.location.href = newPath;
+        }
+      }, 500);
     } catch (err) {
       showToast('Lỗi khi phân nhánh: ' + err.message, 'error');
       btn.disabled = false;
@@ -692,7 +729,7 @@
     textEls.forEach(el => {
       const partId = el.getAttribute('data-timeline-part-id');
       const msgEl = el.closest('[data-message-id]');
-      const messageID = msgEl?.getAttribute('data-message-id') || partCache.get(partId)?.message?.info?.id;
+      const messageID = partCache.get(partId)?.message?.info?.id || partCache.get(partId)?.part?.messageID || msgEl?.getAttribute('data-message-id');
 
       if (partId && !el.querySelector('[data-gaslight-part="' + partId + '"]')) {
         const btn = document.createElement('button');
