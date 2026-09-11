@@ -318,7 +318,7 @@ if (!isWebUI) {
         }
 
         // ==========================================
-        // ROUTER & PROVIDER MANAGER ENDPOINTS
+        // ROUTER & PROVIDER MANAGER ENDPOINTS (OPENCODE NATIVE)
         // ==========================================
 
         const OPENCODE_CONFIG_PATH = path.join(
@@ -326,150 +326,133 @@ if (!isWebUI) {
           '.config', 'opencode', 'opencode.json'
         );
 
-        let sqliteDb = null;
-        function getSqliteDb() {
-          if (sqliteDb) return sqliteDb;
-          try {
-            const { DatabaseSync } = require('node:sqlite');
-            const dbPath = path.join(
-              process.env.APPDATA || (process.env.USERPROFILE + '\\AppData\\Roaming'),
-              '9router', 'db', 'data.sqlite'
-            );
-            if (fs.existsSync(dbPath)) {
-              sqliteDb = new DatabaseSync(dbPath, { readOnly: true });
-            }
-          } catch (e) {
-            console.warn('[Router Backend] SQLite not available:', e.message);
-          }
-          return sqliteDb;
+        function fetchFromOpenCode(reqPath) {
+          return new Promise((resolve) => {
+            http.get(`http://127.0.0.1:${opencodePort}${reqPath}`, (res) => {
+              let d = '';
+              res.on('data', chunk => d += chunk);
+              res.on('end', () => {
+                try { resolve(JSON.parse(d)); } catch { resolve(null); }
+              });
+            }).on('error', () => resolve(null));
+          });
         }
 
-        function formatTimeAgo(dateStr) {
-          if (!dateStr) return '';
-          const diff = Date.now() - new Date(dateStr).getTime();
-          const sec = Math.floor(diff / 1000);
-          if (sec < 60) return `${Math.max(1, sec)}s ago`;
-          const min = Math.floor(sec / 60);
-          if (min < 60) return `${min}m ago`;
-          const hr = Math.floor(min / 60);
-          if (hr < 24) return `${hr}h ago`;
-          const d = Math.floor(hr / 24);
-          return `${d}d ago`;
-        }
+        let lastActivity = {
+          provider: '9router',
+          model: 'ag/gemini-3.8-flash-high',
+          time: Date.now()
+        };
 
         if (cleanUrl === '/opencode-ext/router/stats') {
           const range = query.range || 'today';
-          const db = getSqliteDb();
+          const now = Date.now();
+          const sessions = (await fetchFromOpenCode('/session')) || [];
 
-          if (db) {
-            let where = '1=1';
-            const now = new Date();
-            if (range === 'today') {
-              const todayStr = now.toISOString().slice(0, 10);
-              where = `timestamp LIKE '${todayStr}%'`;
-            } else if (range === '24h') {
-              const d = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
-              where = `timestamp >= '${d}'`;
-            } else if (range === '7d') {
-              const d = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
-              where = `timestamp >= '${d}'`;
-            } else if (range === '30d') {
-              const d = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString();
-              where = `timestamp >= '${d}'`;
-            } else if (range === '60d') {
-              const d = new Date(now.getTime() - 60 * 24 * 3600 * 1000).toISOString();
-              where = `timestamp >= '${d}'`;
-            }
+          // Sort sessions by updated time DESC
+          sessions.sort((a, b) => (b.time?.updated || 0) - (a.time?.updated || 0));
 
-            const row = db.prepare(`
-              SELECT 
-                COUNT(*) as totalRequests,
-                COALESCE(SUM(promptTokens), 0) as totalInputTokens,
-                COALESCE(SUM(completionTokens), 0) as outputTokens,
-                COALESCE(SUM(cost), 0) as estCost
-              FROM usageHistory
-              WHERE ${where}
-            `).get() || { totalRequests: 0, totalInputTokens: 0, outputTokens: 0, estCost: 0 };
-
-            const tokenRows = db.prepare(`SELECT tokens FROM usageHistory WHERE ${where}`).all();
-            let cachedTokens = 0;
-            for (const t of tokenRows) {
-              try { cachedTokens += JSON.parse(t.tokens).cached_tokens || 0; } catch {}
-            }
-
-            const recentRows = db.prepare(`
-              SELECT model, provider, promptTokens, completionTokens, timestamp, cost
-              FROM usageHistory
-              ORDER BY id DESC
-              LIMIT 25
-            `).all();
-
-            const recentRequests = recentRows.map(r => ({
-              model: r.model || 'unknown',
-              provider: r.provider || 'unknown',
-              inTokens: r.promptTokens || 0,
-              outTokens: r.completionTokens || 0,
-              cost: r.cost || 0,
-              timestamp: r.timestamp,
-              timeAgo: formatTimeAgo(r.timestamp)
-            }));
-
-            const activeReq = recentRequests[0];
-            const activeProvider = activeReq?.provider || 'antigravity';
-            const activeModel = activeReq?.model || 'gemini-3.8-flash-high';
-
-            return sendJson(res, 200, {
-              range,
-              totalRequests: row.totalRequests || 0,
-              totalInputTokens: row.totalInputTokens || 0,
-              cachedTokens,
-              outputTokens: row.outputTokens || 0,
-              estCost: row.estCost ? parseFloat(row.estCost.toFixed(2)) : 0,
-              recentRequests,
-              activeProvider,
-              activeModel
-            });
-          } else {
-            return sendJson(res, 200, {
-              range,
-              totalRequests: 0,
-              totalInputTokens: 0,
-              cachedTokens: 0,
-              outputTokens: 0,
-              estCost: 0,
-              recentRequests: [],
-              activeProvider: 'antigravity',
-              activeModel: ''
-            });
+          let rangeCutoff = 0;
+          if (range === 'today') {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            rangeCutoff = startOfToday.getTime();
+          } else if (range === '24h') {
+            rangeCutoff = now - 24 * 3600 * 1000;
+          } else if (range === '7d') {
+            rangeCutoff = now - 7 * 24 * 3600 * 1000;
+          } else if (range === '30d') {
+            rangeCutoff = now - 30 * 24 * 3600 * 1000;
+          } else if (range === '60d') {
+            rangeCutoff = now - 60 * 24 * 3600 * 1000;
           }
+
+          const filteredSessions = rangeCutoff > 0
+            ? sessions.filter(s => (s.time?.updated || s.time?.created || 0) >= rangeCutoff)
+            : sessions;
+
+          let totalInputTokens = 0;
+          let outputTokens = 0;
+          let cachedTokens = 0;
+          let estCost = 0;
+          let totalRequests = 0;
+
+          for (const s of filteredSessions) {
+            if (s.tokens) {
+              totalInputTokens += s.tokens.input || 0;
+              outputTokens += (s.tokens.output || 0) + (s.tokens.reasoning || 0);
+              cachedTokens += s.tokens.cache?.read || 0;
+            }
+            estCost += s.cost || 0;
+            // Estimate turn requests or message count
+            totalRequests += (s.summary?.files || 1) + 2;
+          }
+
+          // Fetch recent assistant requests from latest sessions
+          const recentRequests = [];
+          for (const s of sessions.slice(0, 3)) {
+            if (recentRequests.length >= 25) break;
+            const msgs = (await fetchFromOpenCode(`/session/${encodeURIComponent(s.id)}/message`)) || [];
+            if (Array.isArray(msgs)) {
+              for (let i = msgs.length - 1; i >= 0 && recentRequests.length < 25; i--) {
+                const m = msgs[i].info;
+                if (m && m.role === 'assistant') {
+                  const mTime = m.time?.completed || m.time?.created || s.time?.updated || now;
+                  const diff = now - mTime;
+                  let timeAgo = 'vừa xong';
+                  if (diff > 60000) timeAgo = `${Math.floor(diff / 60000)}m ago`;
+                  else if (diff > 1000) timeAgo = `${Math.floor(diff / 1000)}s ago`;
+
+                  const item = {
+                    model: m.modelID || s.model?.id || 'unknown',
+                    provider: m.providerID || s.model?.providerID || '9router',
+                    inTokens: m.tokens?.input || 0,
+                    outTokens: (m.tokens?.output || 0) + (m.tokens?.reasoning || 0),
+                    cost: m.cost || 0,
+                    timestamp: mTime,
+                    timeAgo
+                  };
+                  recentRequests.push(item);
+                }
+              }
+            }
+          }
+
+          if (recentRequests.length > 0) {
+            totalRequests = Math.max(totalRequests, recentRequests.length);
+            lastActivity.provider = recentRequests[0].provider;
+            lastActivity.model = recentRequests[0].model;
+            lastActivity.time = recentRequests[0].timestamp;
+          }
+
+          return sendJson(res, 200, {
+            range,
+            totalRequests: totalRequests || filteredSessions.length,
+            totalInputTokens,
+            cachedTokens,
+            outputTokens,
+            estCost: parseFloat(estCost.toFixed(2)),
+            recentRequests,
+            activeProvider: lastActivity.provider,
+            activeModel: lastActivity.model
+          });
         }
 
         if (cleanUrl === '/opencode-ext/router/topology') {
-          const db = getSqliteDb();
-          let activeProvider = 'antigravity';
-          let activeModel = 'gemini-3.8-flash-high';
+          const providersData = (await fetchFromOpenCode('/config/providers')) || { providers: [] };
+          const pList = (providersData.providers || []).map(p => ({
+            id: p.id,
+            name: p.name || p.id,
+            modelCount: Object.keys(p.models || {}).length
+          }));
 
-          if (db) {
-            const latest = db.prepare('SELECT model, provider FROM usageHistory ORDER BY id DESC LIMIT 1').get();
-            if (latest) {
-              activeProvider = latest.provider || 'antigravity';
-              activeModel = latest.model || 'gemini-3.8-flash-high';
-            }
-          }
-
-          const hub = { id: '9router', name: '9Router', type: 'hub' };
-          const nodes = [
-            { id: 'bai', name: 'BAI', icon: 'bai', pos: 'top' },
-            { id: 'antigravity', name: 'Antigravity', icon: 'antigravity', pos: 'right-top' },
-            { id: 'openai-codex', name: 'OpenAI Codex', icon: 'openai', pos: 'right-bottom' },
-            { id: 'openrouter', name: 'openrouter', icon: 'openrouter', pos: 'bottom' },
-            { id: 'mimo-free', name: 'MiMo Code Free', icon: 'mimo', pos: 'left-bottom' },
-            { id: 'opencode-free', name: 'OpenCode Free', icon: 'opencode', pos: 'left-top' }
-          ];
+          const hub = { id: 'opencode', name: 'OpenCode Hub', type: 'hub' };
+          const activeProvider = query.activeProvider || lastActivity.provider || (pList[0]?.id || '9router');
+          const activeModel = query.activeModel || lastActivity.model || 'ag/gemini-3.8-flash-high';
 
           return sendJson(res, 200, {
             hub,
-            nodes,
+            providers: pList,
             activeProvider,
             activeModel
           });

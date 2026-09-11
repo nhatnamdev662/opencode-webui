@@ -2801,9 +2801,19 @@
             <button class="opencode-router-tab-btn ${routerCurrentTab === 'overview' ? 'active' : ''}" id="opencode-tab-overview">Overview</button>
             <button class="opencode-router-tab-btn ${routerCurrentTab === 'management' ? 'active' : ''}" id="opencode-tab-management">Chi tiết</button>
           </div>
-          <div style="font-size: 13px; font-weight: 600; color: #a855f7; display: flex; align-items: center; gap: 6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span>9Router AI Hub</span>
+          <div style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="6" height="6" rx="1.5"></rect>
+              <circle cx="4" cy="4" r="2"></circle>
+              <circle cx="20" cy="4" r="2"></circle>
+              <circle cx="4" cy="20" r="2"></circle>
+              <circle cx="20" cy="20" r="2"></circle>
+              <path d="M5.5 5.5l4 4"></path>
+              <path d="M18.5 5.5l-4 4"></path>
+              <path d="M5.5 18.5l4-4"></path>
+              <path d="M18.5 18.5l-4-4"></path>
+            </svg>
+            <span>OpenCode AI Router Hub</span>
           </div>
         </div>
 
@@ -2813,7 +2823,7 @@
             <button class="opencode-router-filter-btn ${routerCurrentRange === '24h' ? 'active' : ''}" data-range="24h">24h</button>
             <button class="opencode-router-filter-btn ${routerCurrentRange === '7d' ? 'active' : ''}" data-range="7d">7D</button>
             <button class="opencode-router-filter-btn ${routerCurrentRange === '30d' ? 'active' : ''}" data-range="30d">30D</button>
-            <button class="opencode-router-filter-btn ${routerCurrentRange === '60d' ? 'active' : ''}" data-range="60d">60D</button>
+            <button class="opencode-router-filter-btn ${routerCurrentRange === '60d' ? 'active' : ''}" data-range="60d">All</button>
           </div>
 
           <button class="opencode-git-close-btn" id="opencode-router-refresh-btn" title="Làm mới dữ liệu" style="width: 28px; height: 28px;">
@@ -2828,7 +2838,7 @@
         </div>
       </div>
       <div class="opencode-router-modal-body" id="opencode-router-modal-body">
-        <div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang tải dữ liệu Router...</div>
+        <div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang tải dữ liệu Router Hub...</div>
       </div>
     `;
 
@@ -2870,14 +2880,19 @@
 
   async function renderOverviewView(container, silent = false) {
     if (!silent) {
-      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang kết nối 9Router...</div>';
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang nạp sơ đồ Topology...</div>';
     }
 
     try {
-      const statsResp = await originalFetch(`/opencode-ext/router/stats?range=${encodeURIComponent(routerCurrentRange)}`);
-      const stats = statsResp.ok ? await statsResp.json() : null;
+      const [statsResp, topoResp] = await Promise.all([
+        originalFetch(`/opencode-ext/router/stats?range=${encodeURIComponent(routerCurrentRange)}`),
+        originalFetch('/opencode-ext/router/topology')
+      ]);
 
-      if (!stats) {
+      const stats = statsResp.ok ? await statsResp.json() : null;
+      const topo = topoResp.ok ? await topoResp.json() : null;
+
+      if (!stats || !topo) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: #f87171;">Không thể tải số liệu thống kê.</div>';
         return;
       }
@@ -2889,12 +2904,12 @@
       const outputTokStr = formatBigNumber(stats.outputTokens);
       const costStr = `~$${stats.estCost.toFixed(2)}`;
 
-      // Recent Requests Rows
+      // Recent Requests Rows from real OpenCode history
       const recentRowsHtml = (stats.recentRequests || []).slice(0, 15).map(r => `
         <div class="opencode-recent-row">
           <div class="recent-col-model" title="${escapeHtml(r.model)}">
             <span class="recent-model-dot"></span>
-            <span>${escapeHtml(r.model)}</span>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.model)}</span>
           </div>
           <div class="recent-col-tokens">
             <span class="recent-in">${formatBigNumber(r.inTokens)}↑</span>
@@ -2904,142 +2919,127 @@
         </div>
       `).join('') || '<div style="padding: 20px; text-align: center; color: #71717a; font-size: 11px;">Chưa có yêu cầu nào gần đây.</div>';
 
-      // Active Provider determine
-      const activeProv = (stats.activeProvider || 'antigravity').toLowerCase();
+      // Determine active provider in real time
+      const currentSessionID = getCurrentSessionID();
+      const currentSession = currentSessionID ? window.__OPENCODE_SESSIONS__?.[currentSessionID] : null;
+      const sessionProv = currentSession?.model?.providerID;
 
-      // Connections paths & active status
-      const isAgActive = activeProv.includes('antigravity') || activeProv.includes('ag');
-      const isBaiActive = activeProv.includes('bai');
-      const isCodexActive = activeProv.includes('codex') || activeProv.includes('openai');
-      const isOpenrouterActive = activeProv.includes('openrouter');
-      const isOpencodeActive = activeProv.includes('opencode');
-      const isMimoActive = activeProv.includes('mimo');
+      let activeProv = (window.__OPENCODE_ACTIVE_STREAM__?.provider || sessionProv || stats.activeProvider || '9router').toLowerCase();
+
+      // OpenCode Providers from backend
+      const providers = topo.providers || [];
+      const count = Math.max(1, providers.length);
+      const cx = 310;
+      const cy = 200;
+      const rx = 215;
+      const ry = 125;
+
+      let curvesSvg = '';
+      let nodesSvg = '';
+
+      providers.forEach((p, idx) => {
+        const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
+        const px = Math.round(cx + rx * Math.cos(angle));
+        const py = Math.round(cy + ry * Math.sin(angle));
+
+        const isPActive = p.id.toLowerCase() === activeProv || (activeProv.includes(p.id.toLowerCase()));
+
+        const cpx1 = Math.round(cx + (px - cx) * 0.45);
+        const cpy1 = cy;
+        const cpx2 = Math.round(cx + (px - cx) * 0.65);
+        const cpy2 = py;
+        const curvePath = `M ${cx} ${cy} C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${px} ${py}`;
+
+        if (isPActive) {
+          curvesSvg += `
+            <path d="${curvePath}" stroke="#f59e0b" stroke-width="3" fill="none" filter="url(#orangeGlow)" />
+            <circle r="4.5" fill="#f59e0b"><animateMotion dur="1.2s" repeatCount="indefinite" path="${curvePath}" /></circle>
+            <circle r="2.8" fill="#fbbf24"><animateMotion dur="1.2s" begin="0.4s" repeatCount="indefinite" path="${curvePath}" /></circle>
+            <circle r="1.8" fill="#ffffff"><animateMotion dur="1.2s" begin="0.8s" repeatCount="indefinite" path="${curvePath}" /></circle>
+          `;
+        } else {
+          curvesSvg += `
+            <path d="${curvePath}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.6" stroke-dasharray="4 4" fill="none" />
+          `;
+        }
+
+        const cardW = 125;
+        const cardH = 34;
+        const cardX = px - cardW / 2;
+        const cardY = py - cardH / 2;
+
+        let iconSvg = '';
+        if (p.id.includes('9router')) {
+          iconSvg = '<polygon points="17,8 13,15 16,15 15,22 20,14 17,14" fill="#a855f7" />';
+        } else if (p.id.includes('copilot') || p.id.includes('github')) {
+          iconSvg = '<circle cx="16" cy="17" r="5" fill="#ffffff" /><circle cx="14" cy="16" r="1.5" fill="#000000" /><circle cx="18" cy="16" r="1.5" fill="#000000" />';
+        } else if (p.id.includes('nvidia')) {
+          iconSvg = '<rect x="10" y="11" width="12" height="12" rx="2" fill="#22c55e" /><circle cx="16" cy="17" r="3" fill="#18181b" />';
+        } else {
+          iconSvg = '<circle cx="16" cy="17" r="4" fill="#38bdf8" />';
+        }
+
+        nodesSvg += `
+          <g class="topology-provider-node" data-provider="${escapeHtml(p.id)}" style="cursor: pointer;">
+            ${isPActive ? `
+              <circle cx="${px}" cy="${py}" r="26" fill="none" stroke="#f59e0b" stroke-width="1.6">
+                <animate attributeName="r" from="22" to="46" dur="1.4s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" from="0.9" to="0" dur="1.4s" repeatCount="indefinite"/>
+              </circle>
+            ` : ''}
+            <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="6" 
+              fill="#18181b" 
+              stroke="${isPActive ? '#f59e0b' : 'rgba(255,255,255,0.12)'}" 
+              stroke-width="${isPActive ? '1.8' : '1.2'}" />
+            <g transform="translate(${cardX}, ${cardY})">
+              ${iconSvg}
+              <text x="30" y="21" fill="#f4f4f5" font-size="11" font-weight="600" font-family="system-ui, sans-serif">${escapeHtml(p.name)}</text>
+            </g>
+          </g>
+        `;
+      });
 
       const topologySvg = `
-        <svg class="opencode-topology-svg" viewBox="0 0 580 380" preserveAspectRatio="xMidYMid meet">
+        <svg class="opencode-topology-svg" viewBox="0 0 620 400" preserveAspectRatio="xMidYMid meet">
           <defs>
             <pattern id="ocGrid" width="24" height="24" patternUnits="userSpaceOnUse">
               <circle cx="2" cy="2" r="1" fill="rgba(255, 255, 255, 0.08)" />
             </pattern>
-            <filter id="orangeGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="glow" />
+            <filter id="orangeGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3.5" result="glow" />
               <feMerge>
                 <feMergeNode in="glow" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            <filter id="purpleGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="glow" />
+            <filter id="centerAura" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="6" result="glow" />
               <feMerge>
                 <feMergeNode in="glow" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            <linearGradient id="opencodeBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#8b5cf6" />
+              <stop offset="100%" stop-color="#06b6d4" />
+            </linearGradient>
           </defs>
 
           <!-- Dot grid background -->
           <rect width="100%" height="100%" fill="url(#ocGrid)" />
 
-          <!-- Connecting Curves -->
-          <!-- 1. Center to BAI (Top) -->
-          <path id="path-bai" d="M 290 171 C 290 130, 290 100, 290 76" 
-            stroke="${isBaiActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isBaiActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isBaiActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isBaiActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 290 171 C 290 130, 290 100, 290 76" /></circle>' : ''}
+          <!-- Connecting Curves with animated laser stream -->
+          ${curvesSvg}
 
-          <!-- 2. Center to Antigravity (Right-Top) -->
-          <path id="path-antigravity" d="M 345 180 C 400 180, 380 115, 405 115" 
-            stroke="${isAgActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isAgActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isAgActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isAgActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 345 180 C 400 180, 380 115, 405 115" /></circle>' : ''}
+          <!-- Satellite Provider Nodes -->
+          ${nodesSvg}
 
-          <!-- 3. Center to OpenAI Codex (Right-Bottom) -->
-          <path id="path-codex" d="M 345 200 C 400 200, 380 265, 400 265" 
-            stroke="${isCodexActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isCodexActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isCodexActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isCodexActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 345 200 C 400 200, 380 265, 400 265" /></circle>' : ''}
-
-          <!-- 4. Center to openrouter (Bottom) -->
-          <path id="path-openrouter" d="M 290 209 C 290 250, 290 280, 290 304" 
-            stroke="${isOpenrouterActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isOpenrouterActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isOpenrouterActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isOpenrouterActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 290 209 C 290 250, 290 280, 290 304" /></circle>' : ''}
-
-          <!-- 5. Center to OpenCode Free (Left-Top) -->
-          <path id="path-opencode" d="M 235 180 C 180 180, 200 115, 180 115" 
-            stroke="${isOpencodeActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isOpencodeActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isOpencodeActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isOpencodeActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 235 180 C 180 180, 200 115, 180 115" /></circle>' : ''}
-
-          <!-- 6. Center to MiMo Code Free (Left-Bottom) -->
-          <path id="path-mimo" d="M 235 200 C 180 200, 200 265, 185 265" 
-            stroke="${isMimoActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
-            stroke-width="${isMimoActive ? '2.8' : '1.6'}" 
-            fill="none" 
-            ${isMimoActive ? 'filter="url(#orangeGlow)"' : ''} />
-          ${isMimoActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 235 200 C 180 200, 200 265, 185 265" /></circle>' : ''}
-
-          <!-- Satellite Nodes -->
-          <!-- BAI (Top) -->
-          <g transform="translate(250, 44)">
-            <rect width="80" height="32" rx="6" fill="#18181b" stroke="${isBaiActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
-            <circle cx="16" cy="16" r="4" fill="#71717a" />
-            <text x="30" y="20" fill="#f4f4f5" font-size="12" font-weight="600" font-family="system-ui, sans-serif">BAI</text>
-          </g>
-
-          <!-- Antigravity (Right-Top) -->
-          <g transform="translate(405, 98)">
-            <rect width="115" height="34" rx="6" fill="#18181b" stroke="${isAgActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="${isAgActive ? '1.8' : '1.2'}" />
-            <polygon points="17,10 24,24 10,24" fill="#38bdf8" />
-            <polygon points="17,14 21,22 13,22" fill="#18181b" />
-            <text x="32" y="21" fill="#f4f4f5" font-size="12" font-weight="600" font-family="system-ui, sans-serif">Antigravity</text>
-          </g>
-
-          <!-- OpenAI Codex (Right-Bottom) -->
-          <g transform="translate(400, 248)">
-            <rect width="125" height="34" rx="6" fill="#18181b" stroke="${isCodexActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
-            <circle cx="18" cy="17" r="6" fill="none" stroke="#10b981" stroke-width="1.8" />
-            <text x="32" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">OpenAI Codex</text>
-          </g>
-
-          <!-- openrouter (Bottom) -->
-          <g transform="translate(240, 304)">
-            <rect width="100" height="32" rx="6" fill="#18181b" stroke="${isOpenrouterActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
-            <circle cx="16" cy="16" r="4" fill="#71717a" />
-            <text x="28" y="20" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">openrouter</text>
-          </g>
-
-          <!-- OpenCode Free (Left-Top) -->
-          <g transform="translate(60, 98)">
-            <rect width="120" height="34" rx="6" fill="#18181b" stroke="${isOpencodeActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
-            <rect x="12" y="10" width="14" height="14" rx="3" fill="none" stroke="#a1a1aa" stroke-width="1.6" />
-            <text x="34" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">OpenCode Free</text>
-          </g>
-
-          <!-- MiMo Code Free (Left-Bottom) -->
-          <g transform="translate(55, 248)">
-            <rect width="130" height="34" rx="6" fill="#18181b" stroke="${isMimoActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
-            <rect x="12" y="9" width="16" height="16" rx="4" fill="#ea580c" />
-            <text x="16" y="21" fill="#ffffff" font-size="10" font-weight="bold">mi</text>
-            <text x="36" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">MiMo Code Free</text>
-          </g>
-
-          <!-- Center Node: 9Router -->
-          <g transform="translate(235, 171)" filter="url(#purpleGlow)">
-            <rect width="110" height="38" rx="8" fill="#1c1926" stroke="#a855f7" stroke-width="1.8" />
-            <rect x="10" y="9" width="20" height="20" rx="5" fill="#a855f7" />
-            <polygon points="21,11 16,19 19,19 18,27 24,18 20,18" fill="#ffffff" />
-            <text x="36" y="24" fill="#ffffff" font-size="13" font-weight="700" font-family="system-ui, sans-serif">9Router</text>
+          <!-- Center Node: OpenCode Hub -->
+          <g transform="translate(245, 178)" filter="url(#centerAura)">
+            <rect width="130" height="44" rx="8" fill="#18181b" stroke="url(#opencodeBorderGrad)" stroke-width="2" />
+            <polygon points="263,189 271,207 255,207" fill="#06b6d4" />
+            <polygon points="263,194 268,205 258,205" fill="#18181b" />
+            <text x="278" y="205" fill="#ffffff" font-size="13" font-weight="700" font-family="system-ui, sans-serif">OpenCode</text>
           </g>
         </svg>
       `;
@@ -3094,6 +3094,16 @@
           </div>
         </div>
       `;
+
+      // Click on any provider node to jump to management tab
+      container.querySelectorAll('.topology-provider-node').forEach(node => {
+        node.addEventListener('click', () => {
+          routerCurrentTab = 'management';
+          renderRouterModalFrame();
+          loadActiveRouterTab();
+        });
+      });
+
     } catch (err) {
       container.innerHTML = `<div style="padding: 40px; text-align: center; color: #f87171;">Lỗi: ${escapeHtml(err.message)}</div>`;
     }
@@ -3332,11 +3342,19 @@
     btn.id = 'opencode-btn-router-hub';
     btn.className = 'opencode-header-git-btn';
     btn.type = 'button';
-    btn.setAttribute('aria-label', 'AI Router Hub & Models');
-    btn.title = 'AI Router Hub (9Router Dashboard & Quản lý Provider)';
+    btn.setAttribute('aria-label', 'AI Provider Hub & Topology');
+    btn.title = 'AI Provider Hub & Topology (Quản lý Model & Provider)';
     btn.innerHTML = `
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        <rect x="9" y="9" width="6" height="6" rx="1.5"></rect>
+        <circle cx="4" cy="4" r="2"></circle>
+        <circle cx="20" cy="4" r="2"></circle>
+        <circle cx="4" cy="20" r="2"></circle>
+        <circle cx="20" cy="20" r="2"></circle>
+        <path d="M5.5 5.5l4 4"></path>
+        <path d="M18.5 5.5l-4 4"></path>
+        <path d="M5.5 18.5l4-4"></path>
+        <path d="M18.5 18.5l-4-4"></path>
       </svg>
     `;
 
