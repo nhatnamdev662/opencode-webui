@@ -466,13 +466,15 @@
     } catch {}
   }
 
-  // Mở khóa switch trong dialog Settings
+  // Mở khóa switch trong dialog Settings và xử lý click trực tiếp
   function unblockAutoAcceptSwitch() {
     const actionDiv = document.querySelector('[data-action="settings-auto-accept-permissions"]');
     if (!actionDiv) return;
 
     const sw = actionDiv.querySelector('[data-component="switch"]') || actionDiv;
     const input = actionDiv.querySelector('input');
+    const control = actionDiv.querySelector('[data-slot="switch-control"]');
+    const thumb = actionDiv.querySelector('[data-slot="switch-thumb"]');
 
     if (input && input.disabled) {
       input.disabled = false;
@@ -486,17 +488,71 @@
       sw.style.opacity = '1';
     }
 
+    function syncVisual(isActive) {
+      if (input) {
+        input.checked = isActive;
+        input.setAttribute('aria-checked', isActive ? 'true' : 'false');
+      }
+      if (isActive) {
+        sw?.setAttribute('data-checked', '');
+        control?.setAttribute('data-checked', '');
+        thumb?.setAttribute('data-checked', '');
+      } else {
+        sw?.removeAttribute('data-checked');
+        control?.removeAttribute('data-checked');
+        thumb?.removeAttribute('data-checked');
+      }
+    }
+
+    // Luôn hiển thị đúng trạng thái hiện tại
+    syncVisual(isAutoAcceptActive());
+
     if (!actionDiv.dataset.unblocked) {
       actionDiv.dataset.unblocked = 'true';
-      actionDiv.addEventListener('click', (e) => {
-        setTimeout(() => {
-          const isChecked = input ? input.checked : true;
-          localStorage.setItem('opencode_auto_accept_forced', isChecked ? 'true' : 'false');
-          if (isChecked) {
-            pollPendingPermissions();
+
+      const onToggle = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const next = !isAutoAcceptActive();
+
+        // 1. Ghi vào localStorage chuẩn của OpenCode Core
+        try {
+          const raw = localStorage.getItem('opencode.global.dat:permission');
+          const p = raw ? JSON.parse(raw) : {};
+          p.autoAccept = p.autoAccept || {};
+
+          const sid = getCurrentSessionID();
+          const dir = window.__OPENCODE_ACTIVE_DIR__ || 'E:\\crack';
+          let dirB64 = '';
+          try { dirB64 = btoa(dir).replace(/=+$/, ''); } catch {}
+
+          if (dirB64) {
+            p.autoAccept[dirB64] = next;
+            if (sid) p.autoAccept[dirB64 + '/' + sid] = next;
           }
-        }, 50);
-      }, true);
+          if (sid) p.autoAccept[sid] = next;
+
+          localStorage.setItem('opencode.global.dat:permission', JSON.stringify(p));
+        } catch {}
+
+        // 2. Lưu cờ dự phòng
+        localStorage.setItem('opencode_auto_accept_forced', next ? 'true' : 'false');
+
+        // 3. Đồng bộ giao diện Switch ngay lập tức
+        syncVisual(next);
+
+        // 4. Nếu bật, duyệt ngay mọi permission đang pending
+        if (next) {
+          pollPendingPermissions();
+          showToast('Tự động chấp nhận quyền: ĐÃ BẬT', 'success');
+        } else {
+          showToast('Tự động chấp nhận quyền: ĐÃ TẮT', 'info');
+        }
+      };
+
+      actionDiv.addEventListener('click', onToggle, true);
+      sw?.addEventListener('click', onToggle, true);
     }
   }
 
