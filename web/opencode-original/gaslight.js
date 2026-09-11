@@ -496,6 +496,375 @@
     .diff-meta { color: var(--v2-text-text-muted, #71717a); font-size: 10px; }
     .diff-ctx { color: var(--v2-text-text-secondary, #a1a1aa); }
 
+    /* ======================================================== */
+    /* ROUTER & PROVIDER MANAGER DASHBOARD MODAL (9ROUTER STYLE) */
+    /* ======================================================== */
+    .opencode-router-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 99998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .opencode-router-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .opencode-router-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.97);
+      width: 95vw;
+      max-width: 1340px;
+      height: 90vh;
+      max-height: 860px;
+      background: #111113;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      z-index: 99999;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.04);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: var(--v2-font-family-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+      color: var(--v2-text-text-primary, #ffffff);
+    }
+    .opencode-router-modal.active {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .opencode-router-modal-header {
+      height: 52px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #151518;
+      flex-shrink: 0;
+    }
+    .opencode-router-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #0d0d0f;
+      padding: 3px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .opencode-router-tab-btn {
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #a1a1aa;
+      background: transparent;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .opencode-router-tab-btn:hover { color: #ffffff; }
+    .opencode-router-tab-btn.active {
+      color: #ffffff;
+      background: #27272a;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .opencode-router-filters {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #0d0d0f;
+      padding: 3px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .opencode-router-filter-btn {
+      padding: 4px 11px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #71717a;
+      background: transparent;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .opencode-router-filter-btn:hover { color: #e4e4e7; }
+    .opencode-router-filter-btn.active {
+      color: #ffffff;
+      background: #27272a;
+    }
+    .opencode-router-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 16px;
+      background: #0f0f11;
+    }
+    .opencode-router-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .opencode-stat-card {
+      background: #161619;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .opencode-stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #71717a;
+      text-transform: uppercase;
+    }
+    .opencode-stat-value {
+      font-size: 21px;
+      font-weight: 700;
+      font-family: var(--v2-font-family-mono, monospace);
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-val-white { color: #f4f4f5; }
+    .stat-val-input { color: #f87171; }
+    .stat-val-cached { color: #38bdf8; }
+    .stat-val-output { color: #4ade80; }
+    .stat-val-cost { color: #fbbf24; }
+    .opencode-stat-sub {
+      font-size: 10px;
+      color: #52525b;
+      margin-top: 2px;
+    }
+    .opencode-router-overview-split {
+      flex: 1;
+      min-height: 480px;
+      display: grid;
+      grid-template-columns: 66% 34%;
+      gap: 16px;
+    }
+    .opencode-topology-box {
+      background: #0c0c0e;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+    .opencode-topology-svg {
+      width: 100%;
+      height: 100%;
+      min-height: 460px;
+    }
+    .opencode-zoom-controls {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(20, 20, 24, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 3px;
+      backdrop-filter: blur(4px);
+    }
+    .opencode-zoom-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: #a1a1aa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.1s ease;
+    }
+    .opencode-zoom-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .opencode-recent-panel {
+      background: #141416;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .opencode-recent-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 11px;
+      font-weight: 600;
+      color: #a1a1aa;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.01);
+    }
+    .opencode-recent-table-head {
+      display: grid;
+      grid-template-columns: 1fr 130px 65px;
+      padding: 8px 16px;
+      font-size: 10.5px;
+      color: #71717a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .opencode-recent-list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 440px;
+    }
+    .opencode-recent-row {
+      display: grid;
+      grid-template-columns: 1fr 130px 65px;
+      padding: 8px 16px;
+      font-size: 11.5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      align-items: center;
+      transition: background 0.1s ease;
+    }
+    .opencode-recent-row:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .recent-col-model {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #e4e4e7;
+      font-family: var(--v2-font-family-mono, monospace);
+      font-size: 11px;
+    }
+    .recent-model-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      flex-shrink: 0;
+    }
+    .recent-col-tokens {
+      text-align: right;
+      font-family: var(--v2-font-family-mono, monospace);
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+    .recent-in { color: #f87171; }
+    .recent-out { color: #4ade80; }
+    .recent-col-when {
+      text-align: right;
+      font-size: 10.5px;
+      color: #71717a;
+      white-space: nowrap;
+    }
+
+    /* Tab 2: Provider Manager */
+    .opencode-pm-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .opencode-pm-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .opencode-pm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 14px;
+    }
+    .opencode-provider-card {
+      background: #151518;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .opencode-provider-card-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .opencode-provider-card-title {
+      font-weight: 600;
+      font-size: 12.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .opencode-provider-card-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .opencode-pm-models-box {
+      background: #0d0d0f;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .opencode-pm-models-list {
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .opencode-model-tag {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 10.5px;
+      font-family: var(--v2-font-family-mono, monospace);
+      color: #d4d4d8;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .opencode-model-delete-btn {
+      color: #71717a;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .opencode-model-delete-btn:hover { color: #f87171; }
+
     /* Popover Context HUD */
     .opencode-context-popover {
       position: fixed;
@@ -2353,6 +2722,638 @@
     }
   }
 
+  // ==========================================
+  // PHASE 5: AI ROUTER DASHBOARD & PROVIDER MANAGER (9ROUTER STYLE)
+  // ==========================================
+
+  let isRouterModalOpen = false;
+  let routerCurrentTab = 'overview';
+  let routerCurrentRange = 'today';
+  let routerPollTimer = null;
+
+  function formatBigNumber(n) {
+    if (n == null || isNaN(n)) return '0';
+    return Number(n).toLocaleString('vi-VN');
+  }
+
+  function ensureRouterModalElements() {
+    let backdrop = document.getElementById('opencode-router-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'opencode-router-backdrop';
+      backdrop.className = 'opencode-router-backdrop';
+      backdrop.addEventListener('click', closeRouterModal);
+      document.body.appendChild(backdrop);
+    }
+
+    let modal = document.getElementById('opencode-router-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'opencode-router-modal';
+      modal.className = 'opencode-router-modal';
+      document.body.appendChild(modal);
+    }
+    return { backdrop, modal };
+  }
+
+  function toggleRouterModal() {
+    if (isRouterModalOpen) closeRouterModal();
+    else openRouterModal();
+  }
+
+  async function openRouterModal() {
+    isRouterModalOpen = true;
+    const { backdrop, modal } = ensureRouterModalElements();
+    backdrop.classList.add('active');
+    modal.classList.add('active');
+
+    renderRouterModalFrame();
+    loadActiveRouterTab();
+
+    if (routerPollTimer) clearInterval(routerPollTimer);
+    routerPollTimer = setInterval(() => {
+      if (isRouterModalOpen && routerCurrentTab === 'overview') {
+        loadActiveRouterTab(true);
+      }
+    }, 3000);
+  }
+
+  function closeRouterModal() {
+    isRouterModalOpen = false;
+    if (routerPollTimer) {
+      clearInterval(routerPollTimer);
+      routerPollTimer = null;
+    }
+    const backdrop = document.getElementById('opencode-router-backdrop');
+    const modal = document.getElementById('opencode-router-modal');
+    if (backdrop) backdrop.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function renderRouterModalFrame() {
+    const modal = document.getElementById('opencode-router-modal');
+    if (!modal) return;
+
+    modal.innerHTML = `
+      <div class="opencode-router-modal-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div class="opencode-router-tabs">
+            <button class="opencode-router-tab-btn ${routerCurrentTab === 'overview' ? 'active' : ''}" id="opencode-tab-overview">Overview</button>
+            <button class="opencode-router-tab-btn ${routerCurrentTab === 'management' ? 'active' : ''}" id="opencode-tab-management">Chi tiết</button>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: #a855f7; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>9Router AI Hub</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="opencode-router-filters" id="opencode-router-time-filters" style="${routerCurrentTab === 'overview' ? '' : 'display: none;'}">
+            <button class="opencode-router-filter-btn ${routerCurrentRange === 'today' ? 'active' : ''}" data-range="today">Today</button>
+            <button class="opencode-router-filter-btn ${routerCurrentRange === '24h' ? 'active' : ''}" data-range="24h">24h</button>
+            <button class="opencode-router-filter-btn ${routerCurrentRange === '7d' ? 'active' : ''}" data-range="7d">7D</button>
+            <button class="opencode-router-filter-btn ${routerCurrentRange === '30d' ? 'active' : ''}" data-range="30d">30D</button>
+            <button class="opencode-router-filter-btn ${routerCurrentRange === '60d' ? 'active' : ''}" data-range="60d">60D</button>
+          </div>
+
+          <button class="opencode-git-close-btn" id="opencode-router-refresh-btn" title="Làm mới dữ liệu" style="width: 28px; height: 28px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path></svg>
+          </button>
+
+          <button class="opencode-git-close-btn" id="opencode-router-close-btn" aria-label="Close" style="width: 28px; height: 28px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="opencode-router-modal-body" id="opencode-router-modal-body">
+        <div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang tải dữ liệu Router...</div>
+      </div>
+    `;
+
+    document.getElementById('opencode-router-close-btn')?.addEventListener('click', closeRouterModal);
+    document.getElementById('opencode-router-refresh-btn')?.addEventListener('click', () => loadActiveRouterTab(false));
+
+    document.getElementById('opencode-tab-overview')?.addEventListener('click', () => {
+      routerCurrentTab = 'overview';
+      renderRouterModalFrame();
+      loadActiveRouterTab();
+    });
+
+    document.getElementById('opencode-tab-management')?.addEventListener('click', () => {
+      routerCurrentTab = 'management';
+      renderRouterModalFrame();
+      loadActiveRouterTab();
+    });
+
+    document.querySelectorAll('.opencode-router-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.opencode-router-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        routerCurrentRange = btn.getAttribute('data-range') || 'today';
+        loadActiveRouterTab();
+      });
+    });
+  }
+
+  async function loadActiveRouterTab(silent = false) {
+    const container = document.getElementById('opencode-router-modal-body');
+    if (!container) return;
+
+    if (routerCurrentTab === 'overview') {
+      await renderOverviewView(container, silent);
+    } else {
+      await renderManagementView(container);
+    }
+  }
+
+  async function renderOverviewView(container, silent = false) {
+    if (!silent) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang kết nối 9Router...</div>';
+    }
+
+    try {
+      const statsResp = await originalFetch(`/opencode-ext/router/stats?range=${encodeURIComponent(routerCurrentRange)}`);
+      const stats = statsResp.ok ? await statsResp.json() : null;
+
+      if (!stats) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #f87171;">Không thể tải số liệu thống kê.</div>';
+        return;
+      }
+
+      // Format Numbers
+      const totalReqStr = formatBigNumber(stats.totalRequests);
+      const inputTokStr = formatBigNumber(stats.totalInputTokens);
+      const cachedTokStr = formatBigNumber(stats.cachedTokens);
+      const outputTokStr = formatBigNumber(stats.outputTokens);
+      const costStr = `~$${stats.estCost.toFixed(2)}`;
+
+      // Recent Requests Rows
+      const recentRowsHtml = (stats.recentRequests || []).slice(0, 15).map(r => `
+        <div class="opencode-recent-row">
+          <div class="recent-col-model" title="${escapeHtml(r.model)}">
+            <span class="recent-model-dot"></span>
+            <span>${escapeHtml(r.model)}</span>
+          </div>
+          <div class="recent-col-tokens">
+            <span class="recent-in">${formatBigNumber(r.inTokens)}↑</span>
+            <span class="recent-out">${formatBigNumber(r.outTokens)}↓</span>
+          </div>
+          <div class="recent-col-when">${escapeHtml(r.timeAgo || '')}</div>
+        </div>
+      `).join('') || '<div style="padding: 20px; text-align: center; color: #71717a; font-size: 11px;">Chưa có yêu cầu nào gần đây.</div>';
+
+      // Active Provider determine
+      const activeProv = (stats.activeProvider || 'antigravity').toLowerCase();
+
+      // Connections paths & active status
+      const isAgActive = activeProv.includes('antigravity') || activeProv.includes('ag');
+      const isBaiActive = activeProv.includes('bai');
+      const isCodexActive = activeProv.includes('codex') || activeProv.includes('openai');
+      const isOpenrouterActive = activeProv.includes('openrouter');
+      const isOpencodeActive = activeProv.includes('opencode');
+      const isMimoActive = activeProv.includes('mimo');
+
+      const topologySvg = `
+        <svg class="opencode-topology-svg" viewBox="0 0 580 380" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <pattern id="ocGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="rgba(255, 255, 255, 0.08)" />
+            </pattern>
+            <filter id="orangeGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="glow" />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id="purpleGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="glow" />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Dot grid background -->
+          <rect width="100%" height="100%" fill="url(#ocGrid)" />
+
+          <!-- Connecting Curves -->
+          <!-- 1. Center to BAI (Top) -->
+          <path id="path-bai" d="M 290 171 C 290 130, 290 100, 290 76" 
+            stroke="${isBaiActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isBaiActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isBaiActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isBaiActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 290 171 C 290 130, 290 100, 290 76" /></circle>' : ''}
+
+          <!-- 2. Center to Antigravity (Right-Top) -->
+          <path id="path-antigravity" d="M 345 180 C 400 180, 380 115, 405 115" 
+            stroke="${isAgActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isAgActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isAgActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isAgActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 345 180 C 400 180, 380 115, 405 115" /></circle>' : ''}
+
+          <!-- 3. Center to OpenAI Codex (Right-Bottom) -->
+          <path id="path-codex" d="M 345 200 C 400 200, 380 265, 400 265" 
+            stroke="${isCodexActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isCodexActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isCodexActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isCodexActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 345 200 C 400 200, 380 265, 400 265" /></circle>' : ''}
+
+          <!-- 4. Center to openrouter (Bottom) -->
+          <path id="path-openrouter" d="M 290 209 C 290 250, 290 280, 290 304" 
+            stroke="${isOpenrouterActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isOpenrouterActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isOpenrouterActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isOpenrouterActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 290 209 C 290 250, 290 280, 290 304" /></circle>' : ''}
+
+          <!-- 5. Center to OpenCode Free (Left-Top) -->
+          <path id="path-opencode" d="M 235 180 C 180 180, 200 115, 180 115" 
+            stroke="${isOpencodeActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isOpencodeActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isOpencodeActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isOpencodeActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 235 180 C 180 180, 200 115, 180 115" /></circle>' : ''}
+
+          <!-- 6. Center to MiMo Code Free (Left-Bottom) -->
+          <path id="path-mimo" d="M 235 200 C 180 200, 200 265, 185 265" 
+            stroke="${isMimoActive ? '#f97316' : 'rgba(255, 255, 255, 0.12)'}" 
+            stroke-width="${isMimoActive ? '2.8' : '1.6'}" 
+            fill="none" 
+            ${isMimoActive ? 'filter="url(#orangeGlow)"' : ''} />
+          ${isMimoActive ? '<circle r="3.5" fill="#fbbf24"><animateMotion dur="1.8s" repeatCount="indefinite" path="M 235 200 C 180 200, 200 265, 185 265" /></circle>' : ''}
+
+          <!-- Satellite Nodes -->
+          <!-- BAI (Top) -->
+          <g transform="translate(250, 44)">
+            <rect width="80" height="32" rx="6" fill="#18181b" stroke="${isBaiActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
+            <circle cx="16" cy="16" r="4" fill="#71717a" />
+            <text x="30" y="20" fill="#f4f4f5" font-size="12" font-weight="600" font-family="system-ui, sans-serif">BAI</text>
+          </g>
+
+          <!-- Antigravity (Right-Top) -->
+          <g transform="translate(405, 98)">
+            <rect width="115" height="34" rx="6" fill="#18181b" stroke="${isAgActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="${isAgActive ? '1.8' : '1.2'}" />
+            <polygon points="17,10 24,24 10,24" fill="#38bdf8" />
+            <polygon points="17,14 21,22 13,22" fill="#18181b" />
+            <text x="32" y="21" fill="#f4f4f5" font-size="12" font-weight="600" font-family="system-ui, sans-serif">Antigravity</text>
+          </g>
+
+          <!-- OpenAI Codex (Right-Bottom) -->
+          <g transform="translate(400, 248)">
+            <rect width="125" height="34" rx="6" fill="#18181b" stroke="${isCodexActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
+            <circle cx="18" cy="17" r="6" fill="none" stroke="#10b981" stroke-width="1.8" />
+            <text x="32" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">OpenAI Codex</text>
+          </g>
+
+          <!-- openrouter (Bottom) -->
+          <g transform="translate(240, 304)">
+            <rect width="100" height="32" rx="6" fill="#18181b" stroke="${isOpenrouterActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
+            <circle cx="16" cy="16" r="4" fill="#71717a" />
+            <text x="28" y="20" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">openrouter</text>
+          </g>
+
+          <!-- OpenCode Free (Left-Top) -->
+          <g transform="translate(60, 98)">
+            <rect width="120" height="34" rx="6" fill="#18181b" stroke="${isOpencodeActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
+            <rect x="12" y="10" width="14" height="14" rx="3" fill="none" stroke="#a1a1aa" stroke-width="1.6" />
+            <text x="34" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">OpenCode Free</text>
+          </g>
+
+          <!-- MiMo Code Free (Left-Bottom) -->
+          <g transform="translate(55, 248)">
+            <rect width="130" height="34" rx="6" fill="#18181b" stroke="${isMimoActive ? '#f97316' : 'rgba(255,255,255,0.12)'}" stroke-width="1.2" />
+            <rect x="12" y="9" width="16" height="16" rx="4" fill="#ea580c" />
+            <text x="16" y="21" fill="#ffffff" font-size="10" font-weight="bold">mi</text>
+            <text x="36" y="21" fill="#f4f4f5" font-size="11.5" font-weight="600" font-family="system-ui, sans-serif">MiMo Code Free</text>
+          </g>
+
+          <!-- Center Node: 9Router -->
+          <g transform="translate(235, 171)" filter="url(#purpleGlow)">
+            <rect width="110" height="38" rx="8" fill="#1c1926" stroke="#a855f7" stroke-width="1.8" />
+            <rect x="10" y="9" width="20" height="20" rx="5" fill="#a855f7" />
+            <polygon points="21,11 16,19 19,19 18,27 24,18 20,18" fill="#ffffff" />
+            <text x="36" y="24" fill="#ffffff" font-size="13" font-weight="700" font-family="system-ui, sans-serif">9Router</text>
+          </g>
+        </svg>
+      `;
+
+      container.innerHTML = `
+        <!-- Top 5 Stat Cards -->
+        <div class="opencode-router-stats-grid">
+          <div class="opencode-stat-card">
+            <span class="opencode-stat-label">Total Requests</span>
+            <span class="opencode-stat-value stat-val-white">${totalReqStr}</span>
+          </div>
+          <div class="opencode-stat-card">
+            <span class="opencode-stat-label">Total Input Tokens</span>
+            <span class="opencode-stat-value stat-val-input">${inputTokStr}</span>
+          </div>
+          <div class="opencode-stat-card">
+            <span class="opencode-stat-label">Cached Tokens</span>
+            <span class="opencode-stat-value stat-val-cached">${cachedTokStr}</span>
+          </div>
+          <div class="opencode-stat-card">
+            <span class="opencode-stat-label">Output Tokens</span>
+            <span class="opencode-stat-value stat-val-output">${outputTokStr}</span>
+          </div>
+          <div class="opencode-stat-card">
+            <span class="opencode-stat-label">Est. Cost</span>
+            <span class="opencode-stat-value stat-val-cost">${costStr}</span>
+            <span class="opencode-stat-sub">Estimated, not actual billing</span>
+          </div>
+        </div>
+
+        <!-- Split View: Topology & Recent Requests -->
+        <div class="opencode-router-overview-split">
+          <div class="opencode-topology-box">
+            ${topologySvg}
+            <div class="opencode-zoom-controls">
+              <button class="opencode-zoom-btn" title="Zoom in">+</button>
+              <button class="opencode-zoom-btn" title="Zoom out">−</button>
+              <button class="opencode-zoom-btn" title="Fit view">⛶</button>
+            </div>
+          </div>
+
+          <div class="opencode-recent-panel">
+            <div class="opencode-recent-header">Recent Requests</div>
+            <div class="opencode-recent-table-head">
+              <span>Model</span>
+              <span style="text-align: right;">In / Out</span>
+              <span style="text-align: right;">When</span>
+            </div>
+            <div class="opencode-recent-list">
+              ${recentRowsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `<div style="padding: 40px; text-align: center; color: #f87171;">Lỗi: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function renderManagementView(container) {
+    container.innerHTML = '<div style="padding: 40px; text-align: center; color: #71717a;">⏳ Đang tải danh sách Providers...</div>';
+
+    try {
+      const resp = await originalFetch('/opencode-ext/router/providers');
+      const data = resp.ok ? await resp.json() : null;
+      const providers = data?.providers || {};
+
+      let cardsHtml = '';
+      const pEntries = Object.entries(providers);
+
+      if (pEntries.length === 0) {
+        cardsHtml = '<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: #71717a;">Chưa có provider nào trong cấu hình opencode.json. Bấm nút Thêm Provider để bắt đầu!</div>';
+      } else {
+        cardsHtml = pEntries.map(([pId, pData]) => {
+          const baseURL = pData.options?.baseURL || '';
+          const modelsObj = pData.models || {};
+          const modelKeys = Object.keys(modelsObj);
+
+          const modelTags = modelKeys.map(mId => `
+            <span class="opencode-model-tag">
+              <span>${escapeHtml(mId)}</span>
+              <span class="opencode-model-delete-btn" data-provider="${escapeHtml(pId)}" data-model="${escapeHtml(mId)}" title="Xóa model">✕</span>
+            </span>
+          `).join('') || '<span style="font-size: 11px; color: #71717a; font-style: italic;">Chưa có model nào</span>';
+
+          return `
+            <div class="opencode-provider-card" data-provider="${escapeHtml(pId)}">
+              <div class="opencode-provider-card-header">
+                <div class="opencode-provider-card-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 16 12 12 8"></polygon></svg>
+                  <span>${escapeHtml(pId)}</span>
+                  <span style="font-size: 10.5px; font-weight: normal; color: #71717a;">(${modelKeys.length} models)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button class="opencode-git-btn-mini btn-ping-provider" data-provider="${escapeHtml(pId)}" data-url="${escapeHtml(baseURL)}" data-key="${escapeHtml(pData.options?.apiKey || '')}">Ping</button>
+                  <button class="opencode-git-btn-mini danger btn-delete-provider" data-provider="${escapeHtml(pId)}">Xóa</button>
+                </div>
+              </div>
+              <div class="opencode-provider-card-body">
+                <div class="opencode-pm-field">
+                  <span style="font-size: 10px; text-transform: uppercase; color: #71717a;">Base URL:</span>
+                  <span style="font-family: var(--v2-font-family-mono); font-size: 11px; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(baseURL || 'Mặc định')}</span>
+                </div>
+                <div class="opencode-pm-models-box">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 10.5px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">Danh sách Models:</span>
+                    <button class="opencode-git-btn-mini btn-scan-provider-models" data-provider="${escapeHtml(pId)}" data-url="${escapeHtml(baseURL)}" data-key="${escapeHtml(pData.options?.apiKey || '')}" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.3); color: #d8b4fe;">⚡ Quét tự động</button>
+                  </div>
+                  <div class="opencode-pm-models-list">
+                    ${modelTags}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      container.innerHTML = `
+        <div class="opencode-pm-header">
+          <div>
+            <div class="opencode-pm-title">Quản lý Providers & Models</div>
+            <div style="font-size: 11.5px; color: #71717a; margin-top: 2px;">Cấu hình kết nối AI Router và tùy chỉnh danh sách Model sử dụng trực tiếp trong OpenCode.</div>
+          </div>
+          <button class="opencode-git-btn opencode-git-btn-secondary" id="opencode-pm-add-provider-btn" style="background: #27272a; color: #ffffff; height: 28px; padding: 0 12px;">
+            + Thêm Provider mới
+          </button>
+        </div>
+        <div class="opencode-pm-grid">
+          ${cardsHtml}
+        </div>
+      `;
+
+      // Event handlers for Ping
+      container.querySelectorAll('.btn-ping-provider').forEach(b => {
+        b.addEventListener('click', async () => {
+          const url = b.getAttribute('data-url');
+          const key = b.getAttribute('data-key');
+          b.innerText = '...';
+          try {
+            const pr = await originalFetch('/opencode-ext/router/ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ baseURL: url, apiKey: key })
+            }).then(r => r.json());
+            if (pr.ok) {
+              b.innerText = `🟢 ${pr.latency}ms`;
+              b.style.color = '#4ade80';
+            } else {
+              b.innerText = '🔴 Lỗi';
+              b.style.color = '#f87171';
+            }
+          } catch {
+            b.innerText = '🔴 Lỗi';
+          }
+        });
+      });
+
+      // Event handlers for Scan models
+      container.querySelectorAll('.btn-scan-provider-models').forEach(b => {
+        b.addEventListener('click', async () => {
+          const pId = b.getAttribute('data-provider');
+          const url = b.getAttribute('data-url');
+          const key = b.getAttribute('data-key');
+          b.innerText = '⏳ Quét...';
+          try {
+            const sr = await originalFetch('/opencode-ext/router/scan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ baseURL: url, apiKey: key })
+            }).then(r => r.json());
+            if (sr.ok && sr.models?.length > 0) {
+              const count = sr.models.length;
+              if (confirm(`Tìm thấy ${count} models từ endpoint /models. Bạn có muốn thêm tất cả vào provider "${pId}" không?`)) {
+                const pData = providers[pId] || { npm: '@ai-sdk/openai-compatible', options: { baseURL: url, apiKey: key }, models: {} };
+                if (!pData.models) pData.models = {};
+                sr.models.forEach(mId => {
+                  pData.models[mId] = { name: mId, modalities: { input: ['text', 'image'], output: ['text'] } };
+                });
+                await originalFetch('/opencode-ext/router/providers/save', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: pId, data: pData })
+                });
+                showToast(`Đã thêm ${count} models vào ${pId}!`, 'success');
+                renderManagementView(container);
+              }
+            } else {
+              showToast(sr.error || 'Không tìm thấy models từ provider', 'error');
+            }
+          } catch (err) {
+            showToast('Lỗi: ' + err.message, 'error');
+          } finally {
+            b.innerText = '⚡ Quét tự động';
+          }
+        });
+      });
+
+      // Event handler for Delete Provider
+      container.querySelectorAll('.btn-delete-provider').forEach(b => {
+        b.addEventListener('click', async () => {
+          const pId = b.getAttribute('data-provider');
+          if (!confirm(`Bạn có chắc muốn xóa vĩnh viễn provider "${pId}" khỏi opencode.json?`)) return;
+          const dr = await originalFetch('/opencode-ext/router/providers/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pId })
+          }).then(r => r.json());
+          if (dr.ok) {
+            showToast(`Đã xóa provider ${pId}`, 'success');
+            renderManagementView(container);
+          } else {
+            showToast(dr.error || 'Lỗi khi xóa provider', 'error');
+          }
+        });
+      });
+
+      // Event handler for Delete individual model
+      container.querySelectorAll('.opencode-model-delete-btn').forEach(b => {
+        b.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const pId = b.getAttribute('data-provider');
+          const mId = b.getAttribute('data-model');
+          if (!confirm(`Xóa model "${mId}" khỏi ${pId}?`)) return;
+          const pData = providers[pId];
+          if (pData?.models && pData.models[mId]) {
+            delete pData.models[mId];
+            await originalFetch('/opencode-ext/router/providers/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: pId, data: pData })
+            });
+            showToast(`Đã xóa model ${mId}`, 'success');
+            renderManagementView(container);
+          }
+        });
+      });
+
+      // Event handler for Add Provider button
+      document.getElementById('opencode-pm-add-provider-btn')?.addEventListener('click', () => {
+        promptAddProvider(container, providers);
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div style="padding: 40px; text-align: center; color: #f87171;">Lỗi: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function promptAddProvider(container, providers) {
+    const id = prompt('Nhập ID Provider (viết liền không dấu, ví dụ: my-openrouter, local-ollama):');
+    if (!id || !id.trim()) return;
+    const cleanId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+    const baseURL = prompt('Nhập Base URL của Provider (ví dụ: http://localhost:11434/v1 hoặc https://openrouter.ai/api/v1):', 'https://');
+    if (!baseURL || !baseURL.trim()) return;
+
+    const apiKey = prompt('Nhập API Key (nếu có, để trống nếu dùng local không cần key):', '');
+
+    const newProviderData = {
+      npm: '@ai-sdk/openai-compatible',
+      options: {
+        baseURL: baseURL.trim(),
+        apiKey: (apiKey || '').trim()
+      },
+      models: {}
+    };
+
+    originalFetch('/opencode-ext/router/providers/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: cleanId, data: newProviderData })
+    }).then(r => r.json()).then(res => {
+      if (res.ok) {
+        showToast(`Đã tạo Provider ${cleanId}! Hãy bấm Quét tự động để nạp models.`, 'success');
+        renderManagementView(container);
+      } else {
+        showToast(res.error || 'Lỗi khi tạo provider', 'error');
+      }
+    });
+  }
+
+  function injectRouterHubButton() {
+    const contextUsageBtn = findContextButton();
+    if (!contextUsageBtn) return;
+    const targetParent = contextUsageBtn.parentElement;
+    const container = targetParent?.parentElement;
+    if (!container || container.querySelector('#opencode-btn-router-hub')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'opencode-btn-router-hub';
+    btn.className = 'opencode-header-git-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'AI Router Hub & Models');
+    btn.title = 'AI Router Hub (9Router Dashboard & Quản lý Provider)';
+    btn.innerHTML = `
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    `;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleRouterModal();
+    });
+
+    const gitBtn = container.querySelector('#opencode-btn-git-changes');
+    if (gitBtn) {
+      container.insertBefore(btn, gitBtn);
+    } else {
+      container.insertBefore(btn, targetParent);
+    }
+  }
+
   let lastSessionId = null;
   function checkSessionChange() {
     const current = getCurrentSessionID();
@@ -2374,6 +3375,7 @@
       unblockAutoAcceptSwitch();
       injectContextPanelCompactBtn();
       injectHeaderCompactBtn();
+      injectRouterHubButton();
       injectGitChangesButton();
       renderContextHUD();
     });
@@ -2391,6 +3393,7 @@
       setTimeout(unblockAutoAcceptSwitch, 500);
       setTimeout(renderContextHUD, 600);
       setTimeout(injectGitChangesButton, 600);
+      setTimeout(injectRouterHubButton, 600);
       setInterval(() => fetchGitStatus(), 6000);
     } else {
       setTimeout(startObserving, 300);

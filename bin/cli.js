@@ -2,6 +2,7 @@
 
 const { spawn, exec } = require('child_process');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
@@ -314,6 +315,268 @@ if (!isWebUI) {
             return sendJson(res, 500, { ok: false, error: initRes.error });
           }
           return sendJson(res, 200, { ok: true, message: 'Đã khởi tạo Git repository thành công.' });
+        }
+
+        // ==========================================
+        // ROUTER & PROVIDER MANAGER ENDPOINTS
+        // ==========================================
+
+        const OPENCODE_CONFIG_PATH = path.join(
+          process.env.USERPROFILE || 'C:\\Users\\MAY1',
+          '.config', 'opencode', 'opencode.json'
+        );
+
+        let sqliteDb = null;
+        function getSqliteDb() {
+          if (sqliteDb) return sqliteDb;
+          try {
+            const { DatabaseSync } = require('node:sqlite');
+            const dbPath = path.join(
+              process.env.APPDATA || (process.env.USERPROFILE + '\\AppData\\Roaming'),
+              '9router', 'db', 'data.sqlite'
+            );
+            if (fs.existsSync(dbPath)) {
+              sqliteDb = new DatabaseSync(dbPath, { readOnly: true });
+            }
+          } catch (e) {
+            console.warn('[Router Backend] SQLite not available:', e.message);
+          }
+          return sqliteDb;
+        }
+
+        function formatTimeAgo(dateStr) {
+          if (!dateStr) return '';
+          const diff = Date.now() - new Date(dateStr).getTime();
+          const sec = Math.floor(diff / 1000);
+          if (sec < 60) return `${Math.max(1, sec)}s ago`;
+          const min = Math.floor(sec / 60);
+          if (min < 60) return `${min}m ago`;
+          const hr = Math.floor(min / 60);
+          if (hr < 24) return `${hr}h ago`;
+          const d = Math.floor(hr / 24);
+          return `${d}d ago`;
+        }
+
+        if (cleanUrl === '/opencode-ext/router/stats') {
+          const range = query.range || 'today';
+          const db = getSqliteDb();
+
+          if (db) {
+            let where = '1=1';
+            const now = new Date();
+            if (range === 'today') {
+              const todayStr = now.toISOString().slice(0, 10);
+              where = `timestamp LIKE '${todayStr}%'`;
+            } else if (range === '24h') {
+              const d = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
+              where = `timestamp >= '${d}'`;
+            } else if (range === '7d') {
+              const d = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
+              where = `timestamp >= '${d}'`;
+            } else if (range === '30d') {
+              const d = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString();
+              where = `timestamp >= '${d}'`;
+            } else if (range === '60d') {
+              const d = new Date(now.getTime() - 60 * 24 * 3600 * 1000).toISOString();
+              where = `timestamp >= '${d}'`;
+            }
+
+            const row = db.prepare(`
+              SELECT 
+                COUNT(*) as totalRequests,
+                COALESCE(SUM(promptTokens), 0) as totalInputTokens,
+                COALESCE(SUM(completionTokens), 0) as outputTokens,
+                COALESCE(SUM(cost), 0) as estCost
+              FROM usageHistory
+              WHERE ${where}
+            `).get() || { totalRequests: 0, totalInputTokens: 0, outputTokens: 0, estCost: 0 };
+
+            const tokenRows = db.prepare(`SELECT tokens FROM usageHistory WHERE ${where}`).all();
+            let cachedTokens = 0;
+            for (const t of tokenRows) {
+              try { cachedTokens += JSON.parse(t.tokens).cached_tokens || 0; } catch {}
+            }
+
+            const recentRows = db.prepare(`
+              SELECT model, provider, promptTokens, completionTokens, timestamp, cost
+              FROM usageHistory
+              ORDER BY id DESC
+              LIMIT 25
+            `).all();
+
+            const recentRequests = recentRows.map(r => ({
+              model: r.model || 'unknown',
+              provider: r.provider || 'unknown',
+              inTokens: r.promptTokens || 0,
+              outTokens: r.completionTokens || 0,
+              cost: r.cost || 0,
+              timestamp: r.timestamp,
+              timeAgo: formatTimeAgo(r.timestamp)
+            }));
+
+            const activeReq = recentRequests[0];
+            const activeProvider = activeReq?.provider || 'antigravity';
+            const activeModel = activeReq?.model || 'gemini-3.8-flash-high';
+
+            return sendJson(res, 200, {
+              range,
+              totalRequests: row.totalRequests || 0,
+              totalInputTokens: row.totalInputTokens || 0,
+              cachedTokens,
+              outputTokens: row.outputTokens || 0,
+              estCost: row.estCost ? parseFloat(row.estCost.toFixed(2)) : 0,
+              recentRequests,
+              activeProvider,
+              activeModel
+            });
+          } else {
+            return sendJson(res, 200, {
+              range,
+              totalRequests: 0,
+              totalInputTokens: 0,
+              cachedTokens: 0,
+              outputTokens: 0,
+              estCost: 0,
+              recentRequests: [],
+              activeProvider: 'antigravity',
+              activeModel: ''
+            });
+          }
+        }
+
+        if (cleanUrl === '/opencode-ext/router/topology') {
+          const db = getSqliteDb();
+          let activeProvider = 'antigravity';
+          let activeModel = 'gemini-3.8-flash-high';
+
+          if (db) {
+            const latest = db.prepare('SELECT model, provider FROM usageHistory ORDER BY id DESC LIMIT 1').get();
+            if (latest) {
+              activeProvider = latest.provider || 'antigravity';
+              activeModel = latest.model || 'gemini-3.8-flash-high';
+            }
+          }
+
+          const hub = { id: '9router', name: '9Router', type: 'hub' };
+          const nodes = [
+            { id: 'bai', name: 'BAI', icon: 'bai', pos: 'top' },
+            { id: 'antigravity', name: 'Antigravity', icon: 'antigravity', pos: 'right-top' },
+            { id: 'openai-codex', name: 'OpenAI Codex', icon: 'openai', pos: 'right-bottom' },
+            { id: 'openrouter', name: 'openrouter', icon: 'openrouter', pos: 'bottom' },
+            { id: 'mimo-free', name: 'MiMo Code Free', icon: 'mimo', pos: 'left-bottom' },
+            { id: 'opencode-free', name: 'OpenCode Free', icon: 'opencode', pos: 'left-top' }
+          ];
+
+          return sendJson(res, 200, {
+            hub,
+            nodes,
+            activeProvider,
+            activeModel
+          });
+        }
+
+        if (cleanUrl === '/opencode-ext/router/providers') {
+          let configData = { provider: {} };
+          if (fs.existsSync(OPENCODE_CONFIG_PATH)) {
+            try {
+              configData = JSON.parse(fs.readFileSync(OPENCODE_CONFIG_PATH, 'utf8'));
+            } catch {}
+          }
+          return sendJson(res, 200, {
+            providers: configData.provider || {}
+          });
+        }
+
+        if (cleanUrl === '/opencode-ext/router/providers/save' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          if (!body.id || !body.data) {
+            return sendJson(res, 400, { ok: false, error: 'Thiếu id hoặc data' });
+          }
+
+          let configData = { provider: {} };
+          if (fs.existsSync(OPENCODE_CONFIG_PATH)) {
+            try {
+              configData = JSON.parse(fs.readFileSync(OPENCODE_CONFIG_PATH, 'utf8'));
+            } catch {}
+            fs.copyFileSync(OPENCODE_CONFIG_PATH, OPENCODE_CONFIG_PATH + '.bak');
+          }
+
+          if (!configData.provider) configData.provider = {};
+          configData.provider[body.id] = body.data;
+
+          fs.writeFileSync(OPENCODE_CONFIG_PATH, JSON.stringify(configData, null, 2), 'utf8');
+          return sendJson(res, 200, { ok: true, message: `Đã lưu cấu hình provider ${body.id}` });
+        }
+
+        if (cleanUrl === '/opencode-ext/router/providers/delete' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          if (!body.id) return sendJson(res, 400, { ok: false, error: 'Thiếu id' });
+
+          if (fs.existsSync(OPENCODE_CONFIG_PATH)) {
+            let configData = JSON.parse(fs.readFileSync(OPENCODE_CONFIG_PATH, 'utf8'));
+            if (configData.provider && configData.provider[body.id]) {
+              fs.copyFileSync(OPENCODE_CONFIG_PATH, OPENCODE_CONFIG_PATH + '.bak');
+              delete configData.provider[body.id];
+              fs.writeFileSync(OPENCODE_CONFIG_PATH, JSON.stringify(configData, null, 2), 'utf8');
+              return sendJson(res, 200, { ok: true, message: `Đã xóa provider ${body.id}` });
+            }
+          }
+          return sendJson(res, 404, { ok: false, error: 'Provider không tồn tại' });
+        }
+
+        if (cleanUrl === '/opencode-ext/router/scan' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          let targetUrl = body.baseURL || 'http://127.0.0.1:20128/v1';
+          if (!targetUrl.endsWith('/models')) {
+            targetUrl = targetUrl.replace(/\/+$/, '') + '/models';
+          }
+
+          const client = targetUrl.startsWith('https:') ? https : http;
+          const headers = {};
+          if (body.apiKey) headers['Authorization'] = `Bearer ${body.apiKey}`;
+
+          client.get(targetUrl, { headers, timeout: 10000 }, (scanRes) => {
+            let d = '';
+            scanRes.on('data', c => d += c);
+            scanRes.on('end', () => {
+              try {
+                const j = JSON.parse(d);
+                const models = Array.isArray(j.data) ? j.data.map(m => m.id) : [];
+                return sendJson(res, 200, { ok: true, models, count: models.length });
+              } catch (e) {
+                return sendJson(res, 500, { ok: false, error: 'Lỗi parse JSON từ /models' });
+              }
+            });
+          }).on('error', (err) => {
+            return sendJson(res, 500, { ok: false, error: err.message });
+          });
+          return;
+        }
+
+        if (cleanUrl === '/opencode-ext/router/ping' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          let targetUrl = body.baseURL || 'http://127.0.0.1:20128/v1';
+          if (!targetUrl.endsWith('/models')) {
+            targetUrl = targetUrl.replace(/\/+$/, '') + '/models';
+          }
+
+          const client = targetUrl.startsWith('https:') ? https : http;
+          const headers = {};
+          if (body.apiKey) headers['Authorization'] = `Bearer ${body.apiKey}`;
+
+          const startTime = Date.now();
+          client.get(targetUrl, { headers, timeout: 5000 }, (pingRes) => {
+            let d = '';
+            pingRes.on('data', c => d += c);
+            pingRes.on('end', () => {
+              const latency = Date.now() - startTime;
+              const ok = pingRes.statusCode >= 200 && pingRes.statusCode < 400;
+              return sendJson(res, 200, { ok, latency, statusCode: pingRes.statusCode });
+            });
+          }).on('error', (err) => {
+            return sendJson(res, 200, { ok: false, latency: -1, error: err.message });
+          });
+          return;
         }
 
         return sendJson(res, 404, { error: 'Not found' });
