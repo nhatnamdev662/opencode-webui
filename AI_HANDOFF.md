@@ -13,12 +13,8 @@ Custom Web UI cho OpenCode, chạy bằng lệnh `opencode webui` (mở http://l
 - `bin/cli.js` = Node HTTP server thuần (không dep ngoài): serve static từ `web/opencode-original/` + reverse proxy mọi API về OpenCode Core (tự dò port qua `/path`: 52987/4096/...), tự spawn `opencode serve` nếu chưa chạy. Có RAM cache + gzip + 304 + SPA fallback (mọi route HTML trả về index.html local).
 - `web/opencode-original/` = bundle gốc OpenCode tải về (index.html + assets/index-BpB7SL4b.js 2.7MB + CSS + dialog-settings...). index.html đã inject `window.__OPENCODE_API_BASE__` + `<script src="/gaslight.js">` + preload.
 - `web/opencode-original/gaslight.js` (v3.1) = tính năng chỉnh sửa tin nhắn assistant: intercept `window.fetch` cache message list, tìm chính xác theo `data-timeline-part-id` trên DOM OpenCode. Nút Edit đặt ở DƯỚI đoạn chat (ngang hàng nút Copy response trong `text-part-copy-wrapper`) và ở DƯỚI đoạn thinking/reasoning (trong footer `gaslight-reasoning-footer`). Cập nhật thời gian thực không cần F5 trang.
-- `web/opencode-original/powersuite.js` (v1.0) = OpenCode WebUI Power Suite mở rộng 4 tính năng thực chiến:
-  1. **File Explorer & Code Viewer**: Cây thư mục workspace + tìm kiếm file + xem code trực tiếp.
-  2. **Session Timeline & Time-Machine**: Dòng thời gian chi tiết từng lượt chat/tool/reasoning + nút 1-click Revert Session quay lui trạng thái.
-  3. **AI Models & Providers Health Dashboard**: Bảng điều khiển kiểm tra các nhà cung cấp kết nối, danh sách model và kiểm tra độ trễ (Latency Ping).
-  4. **Multi-Session Split Monitor**: Mở 2 session song song cạnh nhau trên cùng một màn hình để giám sát và điều khiển đa luồng.
 - Hook lệnh `opencode webui` đã cài ở `C:\Users\MAY1\AppData\Roaming\npm\opencode.cmd` và `opencode.ps1`.
+- Giữ nguyên 100% giao diện và tính năng nguyên bản của OpenCode (không nhồi nhét iframe/modal tự chế gây xung đột hay lag).
 
 **3. API quan trọng (OpenAPI ở `GET /doc`, 162 paths, đã verify):**
 - `GET /session/{sid}/message` → lấy messages + parts (mỗi part có `id, type, text, sessionID, messageID`).

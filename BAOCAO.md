@@ -54,23 +54,13 @@
   - **Không cần F5/reload:** Sau khi Save thành công, OpenCode Core tự động phát SSE event cập nhật DOM tức thì, đã xóa bỏ hoàn toàn lệnh `window.location.reload()`.
   - Đóng an toàn: Chỉ đóng khi bấm Cancel hoặc phím Esc, kéo thả bôi đen văn bản hay bấm ra ngoài không bị đóng nhầm.
 - **Fix triệt để cache browser:**
-  - Cập nhật `bin/cli.js` gửi header `Cache-Control: no-cache` riêng cho `/gaslight.js` và `/powersuite.js`.
+  - Cập nhật `bin/cli.js` gửi header `Cache-Control: no-cache` riêng cho `/gaslight.js`.
   - Thêm query string `/gaslight.js?v=4` trong `index.html`. Browser luôn nạp ngay code mới nhất khi reload.
 
-### 2.4. OpenCode WebUI Power Suite (`web/opencode-original/powersuite.js`)
-Bộ công cụ mở rộng tích hợp thẳng vào thanh header của OpenCode WebUI, mang lại 4 tính năng thực chiến:
-1. **File Explorer & Code Viewer:**
-   - Cây thư mục workspace theo thời gian thực (hỗ trợ subfolder và tìm kiếm file nhanh theo tên).
-   - Xem nội dung file text/code kèm số dòng và dung lượng trực tiếp ngay trên trình duyệt mà không cần mở VS Code.
-2. **Session Timeline & Time-Machine Rollback:**
-   - Liệt kê toàn bộ tiến trình lịch sử cuộc trò chuyện (từng turn user, assistant, tool execution, thinking).
-   - Nút **⏮ Revert Session to here**: Khôi phục session quay về tin nhắn mong muốn (gọi API `/session/{sid}/revert`).
-3. **AI Models & Providers Dashboard:**
-   - Thống kê các nhà cung cấp AI đã kết nối (Nvidia, GitHub Copilot, OpenCode Zen, bai, wus, 9router...).
-   - Nút **⚡ Test API Latency**: Đo thời gian phản hồi (ping latency ms) của từng provider kết nối.
-4. **Multi-Session Split View / Monitor:**
-   - Chế độ chia đôi màn hình (Split View) chạy song song 2 session khác nhau.
-   - Dropdown chọn đổi nhanh session cho từng khung hình, giúp theo dõi và điều khiển đa luồng dễ dàng.
+### 2.4. Tính nhất quán & Tinh gọn (Clean Native Design)
+- **Giữ nguyên 100% bản gốc OpenCode:** Loại bỏ hoàn toàn các script mở rộng tự chế dư thừa (`powersuite.js`), tránh gây rối mắt hay làm hỏng trải nghiệm nguyên bản.
+- Tất cả tính năng cốt lõi (Xem file, Diff, Monaco Code Editor, Chọn Model, Revert) sử dụng trực tiếp các thành phần chính gốc có sẵn của OpenCode (panel Review & Files, tab Open file, dropdown Model trong prompt).
+- Tính năng Gaslight tích hợp tự nhiên, đặt đúng vị trí action bar của OpenCode (dưới đoạn chat và dưới khối thinking) mà không phá vỡ layout.
 
 ---
 
