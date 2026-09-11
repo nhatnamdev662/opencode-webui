@@ -170,6 +170,36 @@
       border-color: rgba(56, 189, 248, 0.45);
       color: #7dd3fc;
     }
+    .opencode-header-compact-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--v2-icon-icon-muted, #808080);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+      flex-shrink: 0;
+    }
+    .opencode-header-compact-btn:hover {
+      color: var(--v2-icon-icon-base, #ffffff);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .opencode-header-compact-btn:active {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .opencode-header-compact-btn.loading svg {
+      animation: opencode-spin 1s linear infinite;
+      color: #38bdf8;
+    }
+    @keyframes opencode-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
 
     /* Popover Context HUD */
     .opencode-context-popover {
@@ -1312,6 +1342,82 @@
     parent.insertBefore(compactBtn, exportBtn);
   }
 
+  function injectHeaderCompactBtn() {
+    const sessionID = getCurrentSessionID();
+    if (!sessionID) return;
+
+    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
+    if (!contextUsageBtn) return;
+    const targetParent = contextUsageBtn.parentElement;
+    const container = targetParent?.parentElement;
+    if (!container || container.querySelector('#opencode-btn-compact-header')) return;
+
+    const isVi = document.documentElement.lang?.includes('vi') || !!document.querySelector('button[aria-label="Tùy chọn khác"]') || !!document.querySelector('button[aria-label*="ngữ cảnh" i]');
+    const tip = isVi ? 'Nén ngữ cảnh (Compact session)' : 'Compact session';
+
+    const btn = document.createElement('button');
+    btn.id = 'opencode-btn-compact-header';
+    btn.className = 'opencode-header-compact-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', tip);
+    btn.title = tip;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      let session = window.__OPENCODE_SESSIONS__?.[sessionID];
+      if (!session || !session.model) {
+        try {
+          const r = await originalFetch('/session/' + encodeURIComponent(sessionID));
+          if (r.ok) {
+            session = await r.json();
+            window.__OPENCODE_SESSIONS__[sessionID] = session;
+          }
+        } catch {}
+      }
+
+      if (!session?.model?.providerID || !session?.model?.id) {
+        showToast('Không tìm thấy thông tin model để nén', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.classList.add('loading');
+      showToast('⏳ Đang nén ngữ cảnh phiên làm việc...', 'info');
+
+      try {
+        const resp = await originalFetch('/session/' + encodeURIComponent(sessionID) + '/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            providerID: session.model.providerID,
+            modelID: session.model.id
+          })
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.message || 'Lỗi server: ' + resp.status);
+        }
+
+        showToast('✓ Đã nén ngữ cảnh thành công!', 'success');
+
+        const updated = await originalFetch('/session/' + encodeURIComponent(sessionID)).then(r => r.json());
+        window.__OPENCODE_SESSIONS__[sessionID] = updated;
+        renderContextHUD();
+      } catch (err) {
+        showToast('Lỗi khi nén: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    });
+
+    container.insertBefore(btn, targetParent);
+  }
+
   async function renderContextHUD() {
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
@@ -1431,6 +1537,7 @@
       injectEditButtons();
       unblockAutoAcceptSwitch();
       injectContextPanelCompactBtn();
+      injectHeaderCompactBtn();
       renderContextHUD();
     });
   });
