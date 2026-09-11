@@ -316,42 +316,6 @@
     }
   }
 
-  // 3. Providers: TÍCH HỢP CHUNG TRỰC TIẾP VÀO CỬA SỔ SETTINGS CỦA OPENCODE!
-  function openOpenCodeSettingsProviders() {
-    closeDialogs();
-
-    // 1. Dispatch keyboard event Ctrl+, to trigger OpenCode's native settings
-    const ev = new KeyboardEvent('keydown', {
-      key: ',',
-      code: 'Comma',
-      keyCode: 188,
-      which: 188,
-      ctrlKey: true,
-      metaKey: false,
-      bubbles: true,
-      cancelable: true
-    });
-    window.dispatchEvent(ev);
-    document.dispatchEvent(ev);
-
-    // 2. Automatically select the "Providers" tab inside OpenCode Settings dialog
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      const dialog = document.querySelector('dialog, [role="dialog"]');
-      if (dialog) {
-        const tabs = Array.from(dialog.querySelectorAll('[role="tab"]'));
-        const provTab = tabs.find(t => t.innerText.trim() === 'Providers');
-        if (provTab) {
-          provTab.click();
-          clearInterval(interval);
-          return;
-        }
-      }
-      if (attempts > 15) clearInterval(interval);
-    }, 50);
-  }
-
   // 4. Split View
   let splitActive = false;
   async function toggleSplit() {
@@ -422,10 +386,6 @@
         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-reset"></use></svg>
         Timeline
       </button>
-      <button type="button" class="opencode-suite-btn" id="ops-btn-models" title="Open Settings > Providers to connect AI models">
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-settings-gear"></use></svg>
-        Providers
-      </button>
       <button type="button" class="opencode-suite-btn" id="ops-btn-split" title="Side-by-side split view">
         <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-split"></use></svg>
         Split
@@ -434,7 +394,6 @@
 
     bar.querySelector('#ops-btn-files').addEventListener('click', toggleFiles);
     bar.querySelector('#ops-btn-timeline').addEventListener('click', openTimeline);
-    bar.querySelector('#ops-btn-models').addEventListener('click', openOpenCodeSettingsProviders);
     bar.querySelector('#ops-btn-split').addEventListener('click', toggleSplit);
 
     header.appendChild(bar);
