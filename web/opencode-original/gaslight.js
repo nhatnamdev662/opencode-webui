@@ -512,9 +512,14 @@
     }
   }
 
+  let debounceTimer = null;
   const observer = new MutationObserver(() => {
-    checkSessionChange();
-    injectEditButtons();
+    if (debounceTimer) return;
+    debounceTimer = requestAnimationFrame(() => {
+      debounceTimer = null;
+      checkSessionChange();
+      injectEditButtons();
+    });
   });
 
   function startObserving() {

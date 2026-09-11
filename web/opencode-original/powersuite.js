@@ -883,7 +883,15 @@
     }
   });
 
-  const observer = new MutationObserver(injectToolbar);
+  let toolbarTimer = null;
+  const observer = new MutationObserver(() => {
+    if (document.getElementById('ops-header-pill')) return;
+    if (toolbarTimer) return;
+    toolbarTimer = requestAnimationFrame(() => {
+      toolbarTimer = null;
+      injectToolbar();
+    });
+  });
   function start() {
     const root = document.getElementById('root');
     if (root) {
