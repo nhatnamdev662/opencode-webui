@@ -276,7 +276,7 @@
       overflow: hidden;
     }
     .ops-code-bar {
-      height: 36px;
+      height: 40px;
       padding: 0 14px;
       border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
       display: flex;
@@ -285,6 +285,8 @@
       background: #161b22;
       font-size: 11.5px;
       color: #8b949e;
+      flex-shrink: 0;
+      gap: 8px;
     }
     .ops-code-bar-actions {
       display: flex;
@@ -312,28 +314,43 @@
     .ops-code-container {
       flex: 1;
       overflow: auto;
-      display: flex;
       background: #0d1117;
-      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-      font-size: 12.5px;
-      line-height: 1.55;
+      position: relative;
     }
-    .ops-line-numbers {
-      padding: 12px 10px 12px 14px;
+    .ops-code-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .ops-code-table tr {
+      height: 20px;
+    }
+    .ops-code-table tr:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .ops-line-no {
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      padding: 0 12px 0 8px;
       text-align: right;
       color: #484f58;
       user-select: none;
       border-right: 1px solid #21262d;
       background: #0d1117;
+      vertical-align: top;
+      position: sticky;
+      left: 0;
+      z-index: 2;
     }
-    .ops-code-text {
-      flex: 1;
-      margin: 0;
-      padding: 12px 16px;
-      color: #e6edf3;
+    .ops-line-content {
+      padding: 0 16px 0 12px;
       white-space: pre;
-      overflow-x: auto;
-      background: transparent;
+      color: #e6edf3;
+      vertical-align: top;
+      word-break: normal;
     }
 
     /* Timeline Styles */
@@ -693,8 +710,12 @@
     // Load and render file content
     async function loadFile(relPath, fileName) {
       currentSelectedPath = relPath;
-      pathLabel.textContent = relPath;
       actionsBar.style.display = 'inline-flex';
+      pathLabel.innerHTML = `
+        <span style="color:#e6edf3;font-weight:600;">${escapeHtml(fileName)}</span>
+        <span style="color:#6e7681;margin-left:6px;font-size:11px;">Loading...</span>
+        <span style="color:#484f58;margin-left:6px;font-size:10.5px;">(${escapeHtml(relPath)})</span>
+      `;
       codeView.innerHTML = '<div style="padding: 24px; color: #8b949e;">Loading file content...</div>';
 
       try {
@@ -708,9 +729,14 @@
         if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'].includes(ext)) {
           const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
           const imgSrc = data.type === 'binary' ? `data:${mime};base64,${data.content}` : `data:${mime};utf8,${encodeURIComponent(data.content)}`;
+          pathLabel.innerHTML = `
+            <span style="color:#e6edf3;font-weight:600;">${escapeHtml(fileName)}</span>
+            <span style="color:#6e7681;margin-left:6px;font-size:11px;">Image preview</span>
+            <span style="color:#484f58;margin-left:6px;font-size:10.5px;">(${escapeHtml(relPath)})</span>
+          `;
           codeView.innerHTML = `
-            <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; background: #0d1117;">
-              <img src="${imgSrc}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; background: #0d1117; width: 100%; height: 100%;">
+              <img src="${imgSrc}" style="max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 24px rgba(0,0,0,0.6);" />
             </div>
           `;
           currentCodeText = '';
@@ -722,6 +748,11 @@
           try {
             text = atob(text);
           } catch {
+            pathLabel.innerHTML = `
+              <span style="color:#e6edf3;font-weight:600;">${escapeHtml(fileName)}</span>
+              <span style="color:#6e7681;margin-left:6px;font-size:11px;">Binary file</span>
+              <span style="color:#484f58;margin-left:6px;font-size:10.5px;">(${escapeHtml(relPath)})</span>
+            `;
             codeView.innerHTML = '<div style="padding: 24px; color: #8b949e;">Binary file content cannot be displayed as text.</div>';
             return;
           }
@@ -729,11 +760,31 @@
         currentCodeText = text;
 
         const lines = text.split('\n');
-        const lineNums = lines.map((_, i) => i + 1).join('\n');
+        const sizeKB = (new Blob([text]).size / 1024).toFixed(1);
+        pathLabel.innerHTML = `
+          <span style="color:#e6edf3;font-weight:600;">${escapeHtml(fileName)}</span>
+          <span style="color:#6e7681;margin-left:6px;font-size:11px;">${lines.length} lines • ${sizeKB} KB</span>
+          <span style="color:#484f58;margin-left:6px;font-size:10.5px;">(${escapeHtml(relPath)})</span>
+        `;
+
+        const maxLines = 5000;
+        const displayLines = lines.slice(0, maxLines);
+
+        let tableRows = '';
+        for (let i = 0; i < displayLines.length; i++) {
+          const lineNum = i + 1;
+          const lineCode = escapeHtml(displayLines[i]);
+          tableRows += `<tr><td class="ops-line-no">${lineNum}</td><td class="ops-line-content">${lineCode || '&nbsp;'}</td></tr>`;
+        }
+
+        if (lines.length > maxLines) {
+          tableRows += `<tr><td class="ops-line-no">...</td><td class="ops-line-content" style="color:#8b949e;font-style:italic;">Showing first ${maxLines} of ${lines.length} lines</td></tr>`;
+        }
 
         codeView.innerHTML = `
-          <div class="ops-line-numbers">${lineNums}</div>
-          <pre class="ops-code-text"><code>${escapeHtml(text)}</code></pre>
+          <table class="ops-code-table">
+            <tbody>${tableRows}</tbody>
+          </table>
         `;
       } catch (err) {
         codeView.innerHTML = `<div style="padding: 24px; color: #f85149;">Error loading file: ${escapeHtml(err.message)}</div>`;
