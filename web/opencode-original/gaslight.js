@@ -71,6 +71,158 @@
     .gaslight-btn-fork {
       margin-left: 4px;
     }
+
+    /* CONTEXT BADGE & HUD */
+    .opencode-context-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 24px;
+      padding: 0 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text-weak, #a1a1a1);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+    }
+    .opencode-context-badge:hover {
+      color: var(--text-normal, #f5f5f5);
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+    .opencode-context-badge.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+    .context-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #46c764;
+      flex-shrink: 0;
+    }
+    .context-badge-dot.warning { background: #f59e0b; }
+    .context-badge-dot.danger { background: #f87171; }
+    .context-badge-pct {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e5e5e5;
+    }
+
+    /* Popover Context HUD */
+    .opencode-context-popover {
+      position: fixed;
+      z-index: 99999;
+      width: 310px;
+      background: var(--v2-background-bg-layer-02, #181818);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #d4d4d4;
+      font-size: 11.5px;
+      animation: opencode-popover-in 0.12s ease-out;
+    }
+    .opencode-context-popover.show {
+      display: flex;
+    }
+    .context-pop-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .context-pop-title {
+      font-weight: 600;
+      color: #f5f5f5;
+      font-size: 12px;
+    }
+    .context-pop-model {
+      font-size: 10px;
+      color: #8a8a8a;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .context-pop-body {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .context-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .context-progress-bar {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      overflow: hidden;
+    }
+    .context-progress-segment {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .context-progress-segment.input { background: #7698fd; }
+    .context-progress-segment.output { background: #46c764; }
+    .context-progress-segment.reasoning { background: #a855f7; }
+    .context-progress-legend {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      color: #8a8a8a;
+      margin-top: 2px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .context-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .context-metric {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 6px 8px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .context-metric-label {
+      font-size: 10px;
+      color: #8a8a8a;
+    }
+    .context-metric-val {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f0f6fc;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
     .gaslight-reasoning-footer {
       display: flex;
       align-items: center;
@@ -832,12 +984,197 @@
     });
   }
 
+  // Context Health & Token HUD
+  let contextPopoverEl = null;
+  let isContextPopoverOpen = false;
+
+  function formatTokens(num) {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toLocaleString();
+  }
+
+  function getContextPopover() {
+    if (contextPopoverEl) return contextPopoverEl;
+    contextPopoverEl = document.createElement('div');
+    contextPopoverEl.className = 'opencode-context-popover';
+    document.body.appendChild(contextPopoverEl);
+
+    document.addEventListener('click', (e) => {
+      if (isContextPopoverOpen && !contextPopoverEl.contains(e.target) && !document.getElementById('opencode-context-badge')?.contains(e.target)) {
+        closeContextPopover();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (isContextPopoverOpen) positionContextPopover();
+    });
+
+    return contextPopoverEl;
+  }
+
+  function positionContextPopover() {
+    const trigger = document.getElementById('opencode-context-badge');
+    if (!trigger || !contextPopoverEl) return;
+    const rect = trigger.getBoundingClientRect();
+    const popWidth = 310;
+    let left = rect.left;
+    if (left + popWidth > window.innerWidth - 10) {
+      left = window.innerWidth - popWidth - 10;
+    }
+    const top = rect.bottom + 6;
+    contextPopoverEl.style.top = top + 'px';
+    contextPopoverEl.style.left = left + 'px';
+  }
+
+  function toggleContextPopover(session) {
+    isContextPopoverOpen = !isContextPopoverOpen;
+    if (isContextPopoverOpen) {
+      const pop = getContextPopover();
+      renderContextPopoverContent(session);
+      positionContextPopover();
+      pop.classList.add('show');
+      document.getElementById('opencode-context-badge')?.classList.add('active');
+    } else {
+      closeContextPopover();
+    }
+  }
+
+  function closeContextPopover() {
+    isContextPopoverOpen = false;
+    contextPopoverEl?.classList.remove('show');
+    document.getElementById('opencode-context-badge')?.classList.remove('active');
+  }
+
+  function renderContextPopoverContent(session) {
+    if (!contextPopoverEl) return;
+    const tokens = session?.tokens || {};
+    const input = tokens.input || 0;
+    const output = tokens.output || 0;
+    const reasoning = tokens.reasoning || 0;
+    const cacheRead = tokens.cache?.read || 0;
+    const total = input + output;
+    const limit = 200000;
+    const pct = Math.min(100, Math.round((total / limit) * 100));
+
+    const inputPct = Math.min(100, (input / limit) * 100);
+    const outputPct = Math.min(100, (output / limit) * 100);
+    const reasoningPct = Math.min(100, (reasoning / limit) * 100);
+
+    const modelName = session?.model?.id || 'Unknown Model';
+
+    contextPopoverEl.innerHTML = `
+      <div class="context-pop-header">
+        <span class="context-pop-title">Context & Token Health</span>
+        <span class="context-pop-model">${modelName}</span>
+      </div>
+      <div class="context-pop-body">
+        <div class="context-progress-wrap">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+            <span>Sử dụng: <b style="color:#f0f6fc">${formatTokens(total)}</b> / ${formatTokens(limit)}</span>
+            <span style="font-weight:600; color:${pct > 85 ? '#f87171' : pct > 60 ? '#f59e0b' : '#46c764'}">${pct}%</span>
+          </div>
+          <div class="context-progress-bar">
+            <div class="context-progress-segment input" style="width:${inputPct}%;" title="Input: ${input.toLocaleString()}"></div>
+            <div class="context-progress-segment output" style="width:${outputPct}%;" title="Output: ${output.toLocaleString()}"></div>
+            <div class="context-progress-segment reasoning" style="width:${reasoningPct}%;" title="Reasoning: ${reasoning.toLocaleString()}"></div>
+          </div>
+          <div class="context-progress-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#7698fd"></span>Input</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#46c764"></span>Output</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>Reasoning</span>
+          </div>
+        </div>
+
+        <div class="context-grid">
+          <div class="context-metric">
+            <span class="context-metric-label">Input Tokens</span>
+            <span class="context-metric-val">${input.toLocaleString()}</span>
+          </div>
+          <div class="context-metric">
+            <span class="context-metric-label">Output Tokens</span>
+            <span class="context-metric-val">${output.toLocaleString()}</span>
+          </div>
+          <div class="context-metric">
+            <span class="context-metric-label">Reasoning Tokens</span>
+            <span class="context-metric-val">${reasoning.toLocaleString()}</span>
+          </div>
+          <div class="context-metric">
+            <span class="context-metric-label">Cache Read</span>
+            <span class="context-metric-val" style="color:#46c764">${cacheRead.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function renderContextHUD() {
+    const sessionID = getCurrentSessionID();
+    if (!sessionID) return;
+
+    // Tìm vị trí nút View context usage trên header session
+    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
+    if (!contextUsageBtn) return;
+    const targetParent = contextUsageBtn.parentElement;
+    if (!targetParent) return;
+
+    let session = window.__OPENCODE_SESSIONS__?.[sessionID];
+    if (!session || !session.tokens) {
+      try {
+        const r = await originalFetch('/session/' + encodeURIComponent(sessionID));
+        if (r.ok) {
+          session = await r.json();
+          window.__OPENCODE_SESSIONS__[sessionID] = session;
+        }
+      } catch {}
+    }
+
+    const tokens = session?.tokens || {};
+    const input = tokens.input || 0;
+    const output = tokens.output || 0;
+    const total = input + output;
+    const limit = 200000;
+    const pct = Math.min(100, Math.round((total / limit) * 100));
+
+    let dotClass = '';
+    if (pct > 85) dotClass = 'danger';
+    else if (pct > 60) dotClass = 'warning';
+
+    let badge = document.getElementById('opencode-context-badge');
+    if (!badge) {
+      badge = document.createElement('button');
+      badge.id = 'opencode-context-badge';
+      badge.className = 'opencode-context-badge';
+      badge.type = 'button';
+      badge.title = 'Click to inspect Context & Token usage';
+
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleContextPopover(window.__OPENCODE_SESSIONS__?.[sessionID] || session);
+      });
+
+      targetParent.after(badge);
+    }
+
+    badge.innerHTML = `
+      <span class="context-badge-dot ${dotClass}"></span>
+      <span>${formatTokens(total)}/${formatTokens(limit)}</span>
+      <span class="context-badge-pct">${pct}%</span>
+    `;
+
+    if (isContextPopoverOpen) {
+      renderContextPopoverContent(session);
+    }
+  }
+
   let lastSessionId = null;
   function checkSessionChange() {
     const current = getCurrentSessionID();
     if (current && current !== lastSessionId) {
       lastSessionId = current;
       ensurePartLoaded(current).then(() => injectEditButtons());
+      renderContextHUD();
     }
   }
 
@@ -849,6 +1186,7 @@
       checkSessionChange();
       injectEditButtons();
       unblockAutoAcceptSwitch();
+      renderContextHUD();
     });
   });
 
@@ -862,6 +1200,7 @@
       setTimeout(injectEditButtons, 500);
       setTimeout(injectEditButtons, 1500);
       setTimeout(unblockAutoAcceptSwitch, 500);
+      setTimeout(renderContextHUD, 600);
     } else {
       setTimeout(startObserving, 300);
     }
