@@ -10,6 +10,16 @@
 (function() {
   'use strict';
 
+  window.__OPENCODE_SESSIONS__ = window.__OPENCODE_SESSIONS__ || {};
+  window.__OPENCODE_ACTIVE_DIR__ = window.__OPENCODE_ACTIVE_DIR__ || null;
+
+  // Lấy active directory từ OpenCode Core
+  fetch('/path').then(r => r.json()).then(d => {
+    if (d && (d.directory || d.worktree)) {
+      window.__OPENCODE_ACTIVE_DIR__ = d.directory || d.worktree;
+    }
+  }).catch(() => {});
+
   // Ensure showReasoningSummaries is enabled in localStorage so thinking blocks render
   try {
     const raw = localStorage.getItem('settings.v3');
@@ -364,6 +374,18 @@
     const response = await originalFetch.apply(this, args);
     const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
 
+    // Cache session directory
+    if (url.match(/\/session\/ses_[^/]+$/)) {
+      try {
+        const cloned = response.clone();
+        const sData = await cloned.json();
+        if (sData?.id && sData?.directory) {
+          window.__OPENCODE_SESSIONS__[sData.id] = sData;
+          window.__OPENCODE_ACTIVE_DIR__ = sData.directory;
+        }
+      } catch {}
+    }
+
     if (url.match(/\/session\/ses_[^/]+\/message/) && !url.includes('/part/')) {
       try {
         const cloned = response.clone();
@@ -377,6 +399,106 @@
 
     return response;
   };
+
+  // Cơ chế mở khóa và xử lý Auto-Accept Permissions trực tiếp
+  function isAutoAcceptActive() {
+    try {
+      if (localStorage.getItem('opencode_auto_accept_forced') === 'true') return true;
+      const raw = localStorage.getItem('opencode.global.dat:permission');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p?.autoAccept) {
+          const vals = Object.values(p.autoAccept);
+          if (vals.some(v => v === true)) return true;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  const handledPermissions = new Set();
+  async function checkAndAutoApprove(req) {
+    if (!isAutoAcceptActive()) return;
+    const id = req?.id;
+    if (!id || handledPermissions.has(id)) return;
+    handledPermissions.add(id);
+
+    try {
+      await originalFetch('/permission/' + encodeURIComponent(id) + '/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: 'once' })
+      });
+      console.log('[OpenCode WebUI] Auto-approved permission:', id);
+    } catch (e) {}
+  }
+
+  async function pollPendingPermissions() {
+    if (!isAutoAcceptActive()) return;
+    try {
+      const res = await originalFetch('/permission');
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          for (const p of list) checkAndAutoApprove(p);
+        }
+      }
+    } catch {}
+  }
+
+  let globalEventSource = null;
+  function initAutoAcceptSSE() {
+    if (globalEventSource) return;
+    try {
+      globalEventSource = new EventSource('/global/event');
+      globalEventSource.onmessage = function(e) {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'permission.asked' || data.type === 'permission.v2.asked') {
+            if (data.properties) checkAndAutoApprove(data.properties);
+          }
+        } catch {}
+      };
+      globalEventSource.onerror = function() {
+        globalEventSource = null;
+        setTimeout(initAutoAcceptSSE, 6000);
+      };
+    } catch {}
+  }
+
+  // Mở khóa switch trong dialog Settings
+  function unblockAutoAcceptSwitch() {
+    const actionDiv = document.querySelector('[data-action="settings-auto-accept-permissions"]');
+    if (!actionDiv) return;
+
+    const sw = actionDiv.querySelector('[data-component="switch"]') || actionDiv;
+    const input = actionDiv.querySelector('input');
+
+    if (input && input.disabled) {
+      input.disabled = false;
+      input.removeAttribute('disabled');
+      input.setAttribute('aria-disabled', 'false');
+    }
+    if (sw) {
+      sw.removeAttribute('data-disabled');
+      sw.style.pointerEvents = 'auto';
+      sw.style.cursor = 'pointer';
+      sw.style.opacity = '1';
+    }
+
+    if (!actionDiv.dataset.unblocked) {
+      actionDiv.dataset.unblocked = 'true';
+      actionDiv.addEventListener('click', (e) => {
+        setTimeout(() => {
+          const isChecked = input ? input.checked : true;
+          localStorage.setItem('opencode_auto_accept_forced', isChecked ? 'true' : 'false');
+          if (isChecked) {
+            pollPendingPermissions();
+          }
+        }, 50);
+      }, true);
+    }
+  }
 
   function getCurrentSessionID() {
     const urlMatch = window.location.href.match(/ses_[a-zA-Z0-9]+/);
@@ -519,16 +641,20 @@
       debounceTimer = null;
       checkSessionChange();
       injectEditButtons();
+      unblockAutoAcceptSwitch();
     });
   });
 
   function startObserving() {
+    initAutoAcceptSSE();
     const root = document.getElementById('root');
     if (root) {
       observer.observe(root, { childList: true, subtree: true });
+      observer.observe(document.body, { childList: true, subtree: true });
       checkSessionChange();
       setTimeout(injectEditButtons, 500);
       setTimeout(injectEditButtons, 1500);
+      setTimeout(unblockAutoAcceptSwitch, 500);
     } else {
       setTimeout(startObserving, 300);
     }
@@ -545,5 +671,5 @@
     setTimeout(injectEditButtons, 300);
   });
 
-  console.log('[OpenCode WebUI] Gaslight v3.1 loaded (live no reload)');
+  console.log('[OpenCode WebUI] Gaslight v4 loaded (Auto-Accept Unblocked)');
 })();
