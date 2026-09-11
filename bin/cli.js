@@ -199,6 +199,17 @@ if (!isWebUI) {
       req.pipe(proxyReq, { end: true });
     });
 
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        const targetUrl = `http://localhost:${UI_PORT}`;
+        console.log('\x1b[33m%s\x1b[0m', `⚠️ WebUI đã đang chạy tại port ${UI_PORT}. Đang mở trình duyệt: ${targetUrl}`);
+        const opener = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+        spawn(opener, [targetUrl], { shell: true });
+        return;
+      }
+      console.error(err);
+    });
+
     server.listen(UI_PORT, () => {
       const targetUrl = `http://localhost:${UI_PORT}`;
       console.log('\x1b[35m%s\x1b[0m', `🌐 OpenCode Web UI siêu tốc sẵn sàng: ${targetUrl}`);
