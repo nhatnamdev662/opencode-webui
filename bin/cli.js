@@ -147,8 +147,8 @@ if (!isWebUI) {
           const headers = {
             'Content-Type': mimeMap[ext] || 'application/octet-stream',
             'Last-Modified': cached.mtime,
-            // Cache dài cho assets có hash, không cache cho index.html và gaslight.js để luôn cập nhật
-            'Cache-Control': (ext === '.html' || cleanUrl === '/gaslight.js') ? 'no-cache' : 'public, max-age=31536000, immutable'
+            // Cache dài cho assets có hash, không cache cho index.html, gaslight.js, autopilot.js để luôn cập nhật
+            'Cache-Control': (ext === '.html' || cleanUrl === '/gaslight.js' || cleanUrl === '/autopilot.js') ? 'no-cache' : 'public, max-age=31536000, immutable'
           };
 
           if (isGzip) {
