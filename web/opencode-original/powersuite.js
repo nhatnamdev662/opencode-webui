@@ -1,14 +1,13 @@
-// OpenCode WebUI Power Suite v6.0
-// Features:
-// 1. Workspace File Explorer & Code Viewer (tree browsing, search, line numbers, copy path/code, image preview)
-// 2. Session Timeline & Time-Machine Rollback (turn-by-turn history, instant revert)
-// 3. Multi-Session Split Monitor (side-by-side synchronized view)
-// 4. Ultra-compact native-matching icon toolbar (26px height, micro-tooltips, Alt+F/T/S hotkeys)
+// OpenCode WebUI Power Suite v6.1
+// - Removed redundant Timeline feature
+// - Fixed floating tooltips via document.body Portal (cannot be clipped by header overflow)
+// - Table-based code viewer with sticky line numbers & syntax spacing
+// - Ultra-compact header pill with Files (Alt+F) & Split Screen (Alt+S)
 
 (function() {
   'use strict';
 
-  // Prevent multiple executions if script is loaded more than once
+  // Prevent multiple executions
   if (window.__OPENCODE_POWERSUITE_LOADED__) return;
   window.__OPENCODE_POWERSUITE_LOADED__ = true;
 
@@ -16,7 +15,6 @@
     folder: `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h3.086c.464 0 .91.184 1.238.513l1.414 1.414c.328.329.774.513 1.238.513H13.25c.966 0 1.75.784 1.75 1.75v7.06A1.75 1.75 0 0113.25 14H2.75A1.75 1.75 0 011 12.25V2.75z"/></svg>`,
     folderOpen: `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M.513 5.676A1.75 1.75 0 012.17 4.5h11.66c.749 0 1.41.479 1.657 1.176l1.5 4.25A1.75 1.75 0 0115.33 12.25H2.67a1.75 1.75 0 01-1.657-2.324l1.5-4.25zM1 3.25C1 2.56.56 2 2.25 2h2.836c.331 0 .65.132.884.366l.764.764c.469.469 1.105.732 1.768.732H13.75c.69 0 1.25.56 1.25 1.25v.138A2.75 2.75 0 0013.83 5H2.17A2.75 2.75 0 00.5 7.022V3.25z"/></svg>`,
     file: `<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0113.25 16H3.75A1.75 1.75 0 012 14.25V1.75zm10.25 3.5H9.75A1.75 1.75 0 018 3.5V1.5H3.75a.25.25 0 00-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 00.25-.25V5.25z"/></svg>`,
-    timeline: `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M1.643 3.143L.427 1.927A.25.25 0 000 2.104V5.75c0 .138.112.25.25.25h3.646a.25.25 0 00.177-.427L2.71 4.21A6.75 6.75 0 111.25 8a.75.75 0 10-1.5 0 8.25 8.25 0 101.893-5.286zM8 4a.75.75 0 01.75.75v2.5a.75.75 0 01-.22.53l-1.75 1.75a.75.75 0 11-1.06-1.06L7.25 6.94V4.75A.75.75 0 018 4z"/></svg>`,
     split: `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0114.25 15H1.75A1.75 1.75 0 010 13.25V2.75zm1.5.25v10c0 .138.112.25.25.25h5.5V3H1.75a.25.25 0 00-.25.25zm7.25 10.25h5.5a.25.25 0 00.25-.25V3a.25.25 0 00-.25-.25h-5.5v10.5z"/></svg>`,
     diff: `<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8.75 1.75a.75.75 0 00-1.5 0v3.5H3.75a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5zM3.75 13a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z"/></svg>`,
     copy: `<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>`,
@@ -26,9 +24,9 @@
   };
 
   const STYLE = document.createElement('style');
-  STYLE.id = 'opencode-powersuite-v6-style';
+  STYLE.id = 'opencode-powersuite-v61-style';
   STYLE.textContent = `
-    /* Compact Toolbar Pill */
+    /* Ultra-Compact Toolbar Pill */
     .ops-toolbar-pill {
       display: inline-flex;
       align-items: center;
@@ -46,21 +44,20 @@
       user-select: none;
     }
     .ops-pill-btn {
-      position: relative;
       height: 22px;
       min-width: 26px;
-      padding: 0 5px;
+      padding: 0 6px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 5px;
       background: transparent;
       border: none;
       border-radius: 5px;
       color: var(--v2-text-text-faint, #8f8f8f);
       cursor: pointer;
       transition: all 0.15s ease;
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: 500;
       font-family: inherit;
       line-height: 1;
@@ -78,34 +75,49 @@
       pointer-events: none;
     }
 
-    /* Micro Floating Tooltips */
-    .ops-pill-btn::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%) translateY(-2px);
-      padding: 4px 8px;
-      border-radius: 5px;
+    /* Portal Floating Tooltip (attached to document.body, cannot be clipped) */
+    .ops-portal-tooltip {
+      position: fixed;
+      padding: 6px 10px;
+      border-radius: 7px;
       font-size: 11px;
       font-family: inherit;
-      font-weight: 500;
-      white-space: nowrap;
       background: #1c2128;
-      color: #e6edf3;
+      color: #f0f6fc;
       border: 1px solid #30363d;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
       pointer-events: none;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.12s ease, transform 0.12s ease;
-      z-index: 99999;
+      z-index: 9999999;
+      animation: ops-tooltip-pop 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-width: 240px;
     }
-    .ops-pill-btn:hover::after {
-      opacity: 1;
-      visibility: visible;
-      transform: translateX(-50%) translateY(0);
-      transition-delay: 0.2s;
+    @keyframes ops-tooltip-pop {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .ops-tooltip-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .ops-tooltip-kbd {
+      padding: 1px 4px;
+      font-size: 9.5px;
+      font-family: monospace;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 3px;
+      color: #58a6ff;
+    }
+    .ops-tooltip-desc {
+      font-size: 10.5px;
+      color: #8b949e;
+      line-height: 1.35;
     }
 
     /* Modal Backdrop & Shared Window */
@@ -353,73 +365,6 @@
       word-break: normal;
     }
 
-    /* Timeline Styles */
-    .ops-timeline-body {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .ops-turn-row {
-      background: #161b22;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px;
-      padding: 10px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .ops-turn-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .ops-role-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .ops-role-badge.user {
-      background: rgba(56, 139, 253, 0.15);
-      color: #58a6ff;
-    }
-    .ops-role-badge.assistant {
-      background: rgba(46, 160, 67, 0.15);
-      color: #3fb950;
-    }
-    .ops-turn-content {
-      font-size: 12px;
-      line-height: 1.5;
-      color: #c9d1d9;
-      background: #0d1117;
-      padding: 8px 10px;
-      border-radius: 6px;
-      max-height: 90px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      font-family: 'JetBrains Mono', Consolas, monospace;
-    }
-    .ops-revert-btn {
-      align-self: flex-end;
-      padding: 3px 9px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #f85149;
-      background: rgba(248,81,73,0.08);
-      border: 1px solid rgba(248,81,73,0.25);
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.12s ease;
-    }
-    .ops-revert-btn:hover {
-      background: rgba(248,81,73,0.2);
-    }
-
     /* Split View Container */
     .ops-split-wrapper {
       position: fixed;
@@ -515,6 +460,52 @@
   function closeModals() {
     document.querySelectorAll('.ops-modal-backdrop').forEach(el => el.remove());
     document.querySelectorAll('.ops-pill-btn').forEach(b => b.classList.remove('active'));
+    hideTooltip();
+  }
+
+  // Floating Portal Tooltip Implementation
+  let activeTooltip = null;
+  function showTooltip(targetEl, title, shortcut, desc) {
+    hideTooltip();
+    const rect = targetEl.getBoundingClientRect();
+    const tip = document.createElement('div');
+    tip.className = 'ops-portal-tooltip';
+    tip.innerHTML = `
+      <div class="ops-tooltip-header">
+        <span>${escapeHtml(title)}</span>
+        ${shortcut ? `<span class="ops-tooltip-kbd">${escapeHtml(shortcut)}</span>` : ''}
+      </div>
+      ${desc ? `<div class="ops-tooltip-desc">${escapeHtml(desc)}</div>` : ''}
+    `;
+    document.body.appendChild(tip);
+
+    const tipRect = tip.getBoundingClientRect();
+    let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+    let top = rect.bottom + 6;
+
+    // Viewport edge guards
+    if (left < 8) left = 8;
+    if (left + tipRect.width > window.innerWidth - 8) {
+      left = window.innerWidth - tipRect.width - 8;
+    }
+
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    activeTooltip = tip;
+  }
+
+  function hideTooltip() {
+    if (activeTooltip) {
+      activeTooltip.remove();
+      activeTooltip = null;
+    }
+  }
+
+  function attachTooltip(el, title, shortcut, desc) {
+    el.setAttribute('title', `${title} (${shortcut})`);
+    el.addEventListener('mouseenter', () => showTooltip(el, title, shortcut, desc));
+    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('click', hideTooltip);
   }
 
   // 1. Full Workspace File Explorer & Code Viewer
@@ -537,7 +528,7 @@
             <span style="font-size: 11px; font-weight: normal; color: #8b949e; margin-left: 4px; font-family: monospace;">(${escapeHtml(currentDir || 'Root')})</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <button class="ops-btn-action" id="ops-files-review-btn" title="Open native git review panel">
+            <button class="ops-btn-action" id="ops-files-review-btn" title="Open native git changes panel">
               ${ICONS.diff}
               <span>Git Changes</span>
             </button>
@@ -815,96 +806,7 @@
     renderTree(treeRoot, '', '');
   }
 
-  // 2. Timeline Dialog (Session History & Turn Rollback)
-  async function openTimeline() {
-    closeModals();
-    const btn = document.getElementById('ops-btn-timeline');
-    if (btn) btn.classList.add('active');
-
-    const sid = getCurrentSessionID();
-    if (!sid) {
-      alert('Please open a session first to view history.');
-      if (btn) btn.classList.remove('active');
-      return;
-    }
-
-    const overlay = document.createElement('div');
-    overlay.className = 'ops-modal-backdrop';
-    overlay.innerHTML = `
-      <div class="ops-modal-box" style="width: 780px; max-width: 90%; height: 75vh;">
-        <div class="ops-modal-header">
-          <div class="ops-modal-title">
-            ${ICONS.timeline}
-            <span>Session Timeline & Time-Machine</span>
-          </div>
-          <button class="ops-modal-close" id="ops-timeline-close" title="Close (Esc)">✕</button>
-        </div>
-        <div class="ops-timeline-body" id="ops-timeline-body">
-          <div style="font-size: 12px; color: #888;">Loading session turns...</div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close = () => {
-      overlay.remove();
-      if (btn) btn.classList.remove('active');
-    };
-    overlay.querySelector('#ops-timeline-close').addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    const bodyEl = overlay.querySelector('#ops-timeline-body');
-
-    try {
-      const resp = await fetch(`/session/${sid}/message`);
-      const msgs = await resp.json();
-      if (!Array.isArray(msgs) || msgs.length === 0) {
-        bodyEl.innerHTML = '<div style="font-size: 12px; color: #888;">No turns in this session yet.</div>';
-        return;
-      }
-
-      bodyEl.innerHTML = '';
-      msgs.forEach((m, idx) => {
-        const row = document.createElement('div');
-        row.className = 'ops-turn-row';
-
-        const role = m.info?.role || 'assistant';
-        const time = m.info?.time?.created ? new Date(m.info.time.created).toLocaleTimeString() : '';
-        const textPart = (m.parts || []).find(p => p.type === 'text');
-        const snippet = textPart?.text || '(Tool or automated action)';
-
-        row.innerHTML = `
-          <div class="ops-turn-header">
-            <span class="ops-role-badge ${role}">Turn #${idx + 1} • ${role}</span>
-            <span style="font-size: 11px; color: #888;">${time}</span>
-          </div>
-          <div class="ops-turn-content">${escapeHtml(snippet.slice(0, 350))}</div>
-          <button class="ops-revert-btn" data-msg-id="${m.info.id}">⏮ Revert session to here</button>
-        `;
-
-        row.querySelector('.ops-revert-btn').addEventListener('click', async () => {
-          if (!confirm(`Are you sure you want to revert session to turn #${idx + 1}?`)) return;
-          try {
-            await fetch(`/session/${sid}/revert`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messageID: m.info.id })
-            });
-            close();
-            window.location.reload();
-          } catch (e) {
-            alert('Revert failed: ' + e.message);
-          }
-        });
-
-        bodyEl.appendChild(row);
-      });
-    } catch (err) {
-      bodyEl.innerHTML = `<div style="color:#f85149;font-size:12px;">Error: ${err.message}</div>`;
-    }
-  }
-
-  // 3. Multi-Session Split Monitor
+  // 2. Multi-Session Split Monitor
   let splitActive = false;
   async function toggleSplit() {
     const btn = document.getElementById('ops-btn-split');
@@ -963,7 +865,7 @@
     });
   }
 
-  // 4. Compact Toolbar Injection into Header
+  // 3. Compact Toolbar Injection into Header
   function injectToolbar() {
     if (document.getElementById('opencode-powersuite-pill')) return;
 
@@ -976,20 +878,25 @@
     pill.className = 'ops-toolbar-pill';
 
     pill.innerHTML = `
-      <button type="button" class="ops-pill-btn" id="ops-btn-files" data-tooltip="Files (Alt+F)">
+      <button type="button" class="ops-pill-btn" id="ops-btn-files">
         ${ICONS.folder}
+        <span>Files</span>
       </button>
-      <button type="button" class="ops-pill-btn" id="ops-btn-timeline" data-tooltip="Timeline (Alt+T)">
-        ${ICONS.timeline}
-      </button>
-      <button type="button" class="ops-pill-btn" id="ops-btn-split" data-tooltip="Split View (Alt+S)">
+      <button type="button" class="ops-pill-btn" id="ops-btn-split">
         ${ICONS.split}
+        <span>Split</span>
       </button>
     `;
 
-    pill.querySelector('#ops-btn-files').addEventListener('click', openFiles);
-    pill.querySelector('#ops-btn-timeline').addEventListener('click', openTimeline);
-    pill.querySelector('#ops-btn-split').addEventListener('click', toggleSplit);
+    const btnFiles = pill.querySelector('#ops-btn-files');
+    const btnSplit = pill.querySelector('#ops-btn-split');
+
+    btnFiles.addEventListener('click', openFiles);
+    btnSplit.addEventListener('click', toggleSplit);
+
+    // Attach Portal Tooltips with rich description & shortcuts
+    attachTooltip(btnFiles, 'Workspace Explorer', 'Alt + F', 'Duyệt cây thư mục và đọc nhanh mã nguồn dự án');
+    attachTooltip(btnSplit, 'Split Screen View', 'Alt + S', 'Mở 2 phiên làm việc song song trên cùng màn hình');
 
     targetContainer.appendChild(pill);
   }
@@ -1001,9 +908,6 @@
     } else if (e.altKey && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
       openFiles();
-    } else if (e.altKey && (e.key === 't' || e.key === 'T')) {
-      e.preventDefault();
-      openTimeline();
     } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
       toggleSplit();
@@ -1030,5 +934,5 @@
     start();
   }
 
-  console.log('[OpenCode WebUI] Power Suite v6.0 active');
+  console.log('[OpenCode WebUI] Power Suite v6.1 active');
 })();
