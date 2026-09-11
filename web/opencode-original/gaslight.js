@@ -727,5 +727,11 @@
     setTimeout(injectEditButtons, 300);
   });
 
+  window.__OPENCODE_AUTO_ACCEPT__ = {
+    isActive: () => isAutoAcceptActive(),
+    getHandledCount: () => handledPermissions.size,
+    getSseStatus: () => globalEventSource ? (globalEventSource.readyState === 1 ? 'OPEN' : 'CONNECTING') : 'CLOSED'
+  };
+
   console.log('[OpenCode WebUI] Gaslight v4 loaded (Auto-Accept Unblocked)');
 })();
