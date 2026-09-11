@@ -201,56 +201,50 @@
       to { transform: rotate(360deg); }
     }
 
-    /* Header Git Tracker Button */
+    /* Header Git Tracker Button (Matches 28x28 OpenCode icon buttons) */
     .opencode-header-git-btn {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
+      width: 28px;
       height: 28px;
-      padding: 0 8px;
       border-radius: 6px;
-      border: 1px solid var(--v2-border-base, rgba(255, 255, 255, 0.1));
+      border: none;
       background: transparent;
-      color: var(--v2-text-secondary, #a1a1aa);
-      font-size: 11px;
-      font-weight: 500;
+      color: var(--v2-icon-icon-muted, #808080);
       cursor: pointer;
       user-select: none;
       transition: all 0.12s ease;
       flex-shrink: 0;
-      margin-right: 4px;
+      position: relative;
     }
     .opencode-header-git-btn:hover {
-      color: var(--v2-text-primary, #ffffff);
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--v2-icon-icon-base, #ffffff);
+      background: var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.06));
     }
-    .opencode-header-git-btn.has-changes {
-      border-color: rgba(245, 158, 11, 0.35);
-      background: rgba(245, 158, 11, 0.08);
-      color: #fbbf24;
-    }
-    .opencode-header-git-btn.has-changes:hover {
-      border-color: rgba(245, 158, 11, 0.6);
-      background: rgba(245, 158, 11, 0.15);
+    .opencode-header-git-btn:active {
+      background: var(--v2-overlay-simple-overlay-pressed, rgba(255, 255, 255, 0.1));
     }
     .opencode-header-git-dot {
+      display: none;
+      position: absolute;
+      top: 4px;
+      right: 4px;
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #71717a;
-      flex-shrink: 0;
+      background: #f59e0b;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
     }
     .opencode-header-git-btn.has-changes .opencode-header-git-dot {
-      background: #f59e0b;
-      box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+      display: block;
     }
 
     /* Git Drawer & Backdrop */
     .opencode-git-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.55);
+      background: rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(2px);
       z-index: 99990;
       opacity: 0;
@@ -265,55 +259,58 @@
       position: fixed;
       top: 0;
       right: 0;
-      width: 490px;
+      width: 450px;
       max-width: 92vw;
       height: 100vh;
-      background: var(--v2-background-bg-layer-02, #141416);
-      border-left: 1px solid var(--v2-border-base, rgba(255, 255, 255, 0.1));
+      background: var(--v2-background-bg-base, #131010);
+      border-left: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.08));
       z-index: 99995;
-      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.65);
+      box-shadow: -12px 0 36px rgba(0, 0, 0, 0.5);
       display: flex;
       flex-direction: column;
       transform: translateX(100%);
-      transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-      font-family: inherit;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: var(--v2-font-family-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+      color: var(--v2-text-text-primary, #ffffff);
     }
     .opencode-git-drawer.active {
       transform: translateX(0);
     }
     .opencode-git-drawer-header {
-      padding: 13px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      height: 48px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.08));
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      background: rgba(255, 255, 255, 0.02);
+      background: var(--v2-background-bg-layer-01, #181818);
+      flex-shrink: 0;
     }
     .opencode-git-drawer-title {
       font-size: 13px;
-      font-weight: 600;
-      color: #f4f4f5;
+      font-weight: 500;
+      color: var(--v2-text-text-primary, #ffffff);
       display: flex;
       align-items: center;
       gap: 8px;
     }
     .opencode-git-branch-tag {
-      font-size: 10.5px;
+      font-size: 11px;
       padding: 2px 7px;
       border-radius: 4px;
-      background: rgba(99, 102, 241, 0.15);
-      color: #a5b4fc;
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      font-family: ui-monospace, monospace;
+      background: var(--v2-background-bg-layer-02, #242424);
+      color: var(--v2-text-text-secondary, #a1a1aa);
+      border: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.1));
+      font-family: var(--v2-font-family-mono, ui-monospace, monospace);
     }
     .opencode-git-close-btn {
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
       border-radius: 6px;
       border: none;
       background: transparent;
-      color: #a1a1aa;
+      color: var(--v2-icon-icon-muted, #808080);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -321,22 +318,23 @@
       transition: all 0.12s ease;
     }
     .opencode-git-close-btn:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
+      color: var(--v2-icon-icon-base, #ffffff);
+      background: var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.06));
     }
     .opencode-git-drawer-subbar {
-      padding: 8px 16px;
-      background: rgba(0, 0, 0, 0.25);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 9px 16px;
+      background: var(--v2-background-bg-layer-01, #181818);
+      border-bottom: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.08));
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-shrink: 0;
     }
     .opencode-git-dir-text {
-      font-size: 10.5px;
-      color: #71717a;
-      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--v2-text-text-muted, #71717a);
+      font-family: var(--v2-font-family-mono, ui-monospace, monospace);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -348,36 +346,35 @@
       flex-shrink: 0;
     }
     .opencode-git-btn {
-      padding: 4px 9px;
+      height: 26px;
+      padding: 0 10px;
       border-radius: 5px;
-      font-size: 11px;
-      font-weight: 500;
+      font-size: 11.5px;
+      font-weight: 450;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       transition: all 0.12s ease;
-      border: 1px solid transparent;
       font-family: inherit;
     }
     .opencode-git-btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.1);
-      color: #d4d4d8;
+      background: transparent;
+      border: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.12));
+      color: var(--v2-text-text-secondary, #d4d4d8);
     }
     .opencode-git-btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
+      background: var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.06));
+      color: var(--v2-text-text-primary, #ffffff);
     }
     .opencode-git-btn-danger {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: rgba(239, 68, 68, 0.3);
-      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #f87171;
     }
     .opencode-git-btn-danger:hover {
-      background: rgba(239, 68, 68, 0.2);
-      border-color: rgba(239, 68, 68, 0.5);
-      color: #ffffff;
+      background: rgba(239, 68, 68, 0.18);
+      color: #fca5a5;
     }
     .opencode-git-drawer-body {
       flex: 1;
@@ -385,55 +382,54 @@
       padding: 12px 16px;
     }
     .opencode-git-empty {
-      padding: 40px 16px;
+      padding: 48px 16px;
       text-align: center;
-      color: #71717a;
-      font-size: 12.5px;
+      color: var(--v2-text-text-muted, #71717a);
+      font-size: 12px;
       line-height: 1.6;
     }
     .opencode-git-file-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 7px;
+      background: var(--v2-background-bg-layer-01, #181818);
+      border: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.08));
+      border-radius: 6px;
       margin-bottom: 8px;
       overflow: hidden;
       transition: border-color 0.15s ease;
     }
     .opencode-git-file-card:hover {
-      border-color: rgba(255, 255, 255, 0.14);
+      border-color: var(--v2-border-border-base, rgba(255, 255, 255, 0.16));
     }
     .opencode-git-file-header {
-      padding: 8px 10px;
+      padding: 7px 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      cursor: default;
     }
     .opencode-git-file-info {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
       flex: 1;
     }
     .opencode-git-status-badge {
       font-size: 10px;
-      font-weight: 700;
+      font-weight: 600;
       padding: 1px 5px;
       border-radius: 3px;
-      font-family: ui-monospace, monospace;
+      font-family: var(--v2-font-family-mono, monospace);
       flex-shrink: 0;
     }
-    .status-badge-modified { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .status-badge-untracked { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .status-badge-added { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .status-badge-deleted { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .status-badge-renamed { background: rgba(14, 165, 233, 0.18); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
+    .status-badge-modified { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .status-badge-untracked { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-badge-added { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-badge-deleted { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .status-badge-renamed { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
     .opencode-git-filepath {
-      font-size: 11.5px;
-      color: #e4e4e7;
-      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--v2-text-text-primary, #ffffff);
+      font-family: var(--v2-font-family-mono, ui-monospace, monospace);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -442,8 +438,8 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 10.5px;
-      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      font-family: var(--v2-font-family-mono, monospace);
       flex-shrink: 0;
     }
     .stat-add { color: #34d399; }
@@ -455,34 +451,41 @@
       flex-shrink: 0;
     }
     .opencode-git-btn-mini {
-      padding: 2px 7px;
-      font-size: 10.5px;
+      height: 22px;
+      padding: 0 7px;
+      font-size: 11px;
       border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.1));
       background: transparent;
-      color: #a1a1aa;
+      color: var(--v2-text-text-secondary, #a1a1aa);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       transition: all 0.1s ease;
       font-family: inherit;
     }
     .opencode-git-btn-mini:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--v2-text-text-primary, #ffffff);
+      background: var(--v2-overlay-simple-overlay-hover, rgba(255, 255, 255, 0.06));
+    }
+    .opencode-git-btn-mini.danger {
+      border-color: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
     }
     .opencode-git-btn-mini.danger:hover {
-      color: #fca5a5;
       background: rgba(239, 68, 68, 0.15);
       border-color: rgba(239, 68, 68, 0.4);
+      color: #ffffff;
     }
     .opencode-diff-box {
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding: 6px 10px;
-      background: #09090b;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 11px;
-      line-height: 1.45;
-      max-height: 300px;
+      border-top: 1px solid var(--v2-border-border-muted, rgba(255, 255, 255, 0.08));
+      padding: 8px 12px;
+      background: var(--v2-background-bg-deep, #09090b);
+      font-family: var(--v2-font-family-mono, ui-monospace, monospace);
+      font-size: 11.5px;
+      line-height: 1.5;
+      max-height: 320px;
       overflow: auto;
       white-space: pre;
     }
@@ -490,8 +493,8 @@
     .diff-chunk { color: #818cf8; background: rgba(99, 102, 241, 0.08); }
     .diff-add { color: #34d399; background: rgba(16, 185, 129, 0.12); }
     .diff-del { color: #f87171; background: rgba(239, 68, 68, 0.12); }
-    .diff-meta { color: #71717a; font-size: 10px; }
-    .diff-ctx { color: #a1a1aa; }
+    .diff-meta { color: var(--v2-text-text-muted, #71717a); font-size: 10px; }
+    .diff-ctx { color: var(--v2-text-text-secondary, #a1a1aa); }
 
     /* Popover Context HUD */
     .opencode-context-popover {
@@ -1835,6 +1838,16 @@
   // PHASE 4: FILE CHANGE TRACKER & ONE-CLICK UNDO
   // ==========================================
 
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   let isGitDrawerOpen = false;
   let cachedGitStatus = null;
   let lastGitCheckTime = 0;
@@ -1892,40 +1905,31 @@
     const btn = document.getElementById('opencode-btn-git-changes');
     if (!btn) return;
 
+    const gitSvg = `
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="6" y1="3" x2="6" y2="15"></line>
+        <circle cx="18" cy="6" r="3"></circle>
+        <circle cx="6" cy="18" r="3"></circle>
+        <path d="M18 9a9 9 0 0 1-9 9"></path>
+      </svg>
+      <span class="opencode-header-git-dot"></span>
+    `;
+
+    btn.innerHTML = gitSvg;
+
     if (!cachedGitStatus || !cachedGitStatus.isGit) {
-      btn.className = 'opencode-header-git-btn';
-      btn.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path>
-        </svg>
-        <span class="opencode-header-git-dot"></span>
-        <span>Git</span>
-      `;
-      btn.title = 'Chưa có Git repository trong thư mục này';
+      btn.classList.remove('has-changes');
+      btn.title = 'Git: Chưa khởi tạo repository';
       return;
     }
 
     const count = cachedGitStatus.totalChanges || 0;
     if (count > 0) {
-      btn.className = 'opencode-header-git-btn has-changes';
-      btn.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path>
-        </svg>
-        <span class="opencode-header-git-dot"></span>
-        <span>${count} ${count === 1 ? 'file' : 'files'}</span>
-      `;
-      btn.title = `${count} file bị thay đổi. Bấm để xem Diff & Hoàn tác`;
+      btn.classList.add('has-changes');
+      btn.title = `Git: ${count} ${count === 1 ? 'file thay đổi' : 'files thay đổi'}`;
     } else {
-      btn.className = 'opencode-header-git-btn';
-      btn.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path>
-        </svg>
-        <span class="opencode-header-git-dot"></span>
-        <span>0 files</span>
-      `;
-      btn.title = 'Dự án sạch. Không có file nào bị thay đổi';
+      btn.classList.remove('has-changes');
+      btn.title = 'Git: Dự án sạch (0 file thay đổi)';
     }
   }
 
@@ -1942,11 +1946,13 @@
     btn.type = 'button';
     btn.setAttribute('aria-label', 'File Changes Tracker');
     btn.innerHTML = `
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="6" y1="3" x2="6" y2="15"></line>
+        <circle cx="18" cy="6" r="3"></circle>
+        <circle cx="6" cy="18" r="3"></circle>
+        <path d="M18 9a9 9 0 0 1-9 9"></path>
       </svg>
       <span class="opencode-header-git-dot"></span>
-      <span>0 files</span>
     `;
 
     btn.addEventListener('click', (e) => {
@@ -1999,20 +2005,35 @@
     drawer.innerHTML = `
       <div class="opencode-git-drawer-header">
         <div class="opencode-git-drawer-title">
-          <span>📝 Thay đổi tập tin (Git)</span>
-          <span class="opencode-git-branch-tag">⏳ Đang tải...</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15"></line>
+            <circle cx="18" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M18 9a9 9 0 0 1-9 9"></path>
+          </svg>
+          <span>Thay đổi tập tin</span>
+          <span class="opencode-git-branch-tag">...</span>
         </div>
-        <button class="opencode-git-close-btn" id="opencode-git-close-btn">✕</button>
+        <button class="opencode-git-close-btn" id="opencode-git-close-btn" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
       <div class="opencode-git-drawer-body">
-        <div class="opencode-git-empty">⏳ Đang kiểm tra trạng thái Git...</div>
+        <div class="opencode-git-empty">Đang kiểm tra trạng thái Git...</div>
       </div>
     `;
 
     document.getElementById('opencode-git-close-btn')?.addEventListener('click', closeGitDrawer);
 
-    const status = await fetchGitStatus(true);
-    renderGitDrawerContent(status);
+    try {
+      const status = await fetchGitStatus(true);
+      renderGitDrawerContent(status);
+    } catch (err) {
+      console.error('[OpenCode Git] Error:', err);
+      renderGitDrawerContent(null);
+    }
   }
 
   function closeGitDrawer() {
@@ -2030,11 +2051,23 @@
     if (!status) {
       drawer.innerHTML = `
         <div class="opencode-git-drawer-header">
-          <div class="opencode-git-drawer-title">📝 Thay đổi tập tin (Git)</div>
-          <button class="opencode-git-close-btn" id="opencode-git-close-btn">✕</button>
+          <div class="opencode-git-drawer-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+            <span>Thay đổi tập tin</span>
+          </div>
+          <button class="opencode-git-close-btn" id="opencode-git-close-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
         <div class="opencode-git-drawer-body">
-          <div class="opencode-git-empty">⚠️ Không thể kết nối tới Git service.</div>
+          <div class="opencode-git-empty">Không thể kết nối tới Git service.</div>
         </div>
       `;
       document.getElementById('opencode-git-close-btn')?.addEventListener('click', closeGitDrawer);
@@ -2044,19 +2077,35 @@
     if (!status.isGit) {
       drawer.innerHTML = `
         <div class="opencode-git-drawer-header">
-          <div class="opencode-git-drawer-title">📝 Thay đổi tập tin</div>
-          <button class="opencode-git-close-btn" id="opencode-git-close-btn">✕</button>
+          <div class="opencode-git-drawer-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+            <span>Thay đổi tập tin</span>
+          </div>
+          <button class="opencode-git-close-btn" id="opencode-git-close-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
         <div class="opencode-git-drawer-subbar">
           <span class="opencode-git-dir-text" title="${escapeHtml(status.directory)}">${escapeHtml(status.directory)}</span>
         </div>
         <div class="opencode-git-drawer-body">
           <div class="opencode-git-empty">
-            <div style="font-size: 28px; margin-bottom: 12px;">📁</div>
-            <div style="color: #e4e4e7; font-weight: 500; margin-bottom: 6px;">Chưa có Git Repository</div>
-            <p style="margin-bottom: 16px; font-size: 11.5px; color: #a1a1aa;">Khởi tạo Git để OpenCode WebUI tự động theo dõi file thay đổi và bật tính năng 1-Click Hoàn tác.</p>
-            <button class="opencode-git-btn opencode-git-btn-secondary" id="opencode-git-init-btn" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.4); color: #c7d2fe; margin: 0 auto;">
-              ⚡ Khởi tạo Git ngay (git init)
+            <div style="margin-bottom: 12px; display: flex; justify-content: center; color: var(--v2-icon-icon-muted);">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <div style="color: var(--v2-text-text-primary); font-weight: 500; margin-bottom: 6px; font-size: 13px;">Chưa có Git Repository</div>
+            <p style="margin-bottom: 16px; font-size: 11.5px; color: var(--v2-text-text-muted); line-height: 1.5;">Khởi tạo Git để WebUI tự động theo dõi file thay đổi và bật tính năng 1-Click Hoàn tác.</p>
+            <button class="opencode-git-btn opencode-git-btn-secondary" id="opencode-git-init-btn" style="margin: 0 auto;">
+              Khởi tạo Git ngay (git init)
             </button>
           </div>
         </div>
@@ -2076,9 +2125,14 @@
     if (count === 0) {
       bodyHtml = `
         <div class="opencode-git-empty">
-          <div style="font-size: 28px; margin-bottom: 12px;">✨</div>
-          <div style="color: #e4e4e7; font-weight: 500; margin-bottom: 6px;">Dự án hoàn toàn sạch!</div>
-          <p style="font-size: 11.5px; color: #a1a1aa;">Không có file nào bị sửa đổi hoặc thêm mới so với commit gần nhất.</p>
+          <div style="margin-bottom: 12px; display: flex; justify-content: center; color: var(--v2-icon-icon-muted);">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div style="color: var(--v2-text-text-primary); font-weight: 500; margin-bottom: 6px; font-size: 13px;">Dự án hoàn toàn sạch</div>
+          <p style="font-size: 11.5px; color: var(--v2-text-text-muted);">Không có tập tin nào bị sửa đổi hoặc tạo mới.</p>
         </div>
       `;
     } else {
@@ -2103,7 +2157,7 @@
               </div>
               <div class="opencode-git-file-actions">
                 <button class="opencode-git-btn-mini btn-toggle-diff" data-file="${escapeHtml(f.file)}">Diff</button>
-                <button class="opencode-git-btn-mini danger btn-revert-file" data-file="${escapeHtml(f.file)}" title="Hoàn tác file này">↺ Hoàn tác</button>
+                <button class="opencode-git-btn-mini danger btn-revert-file" data-file="${escapeHtml(f.file)}" title="Hoàn tác file này">Hoàn tác</button>
               </div>
             </div>
             <div class="opencode-diff-container" style="display: none;"></div>
@@ -2115,21 +2169,33 @@
     drawer.innerHTML = `
       <div class="opencode-git-drawer-header">
         <div class="opencode-git-drawer-title">
-          <span>📝 Thay đổi tập tin</span>
-          <span class="opencode-git-branch-tag">🌿 ${escapeHtml(branch)}</span>
-          <span style="font-size: 11px; font-weight: normal; color: #a1a1aa;">(${count} ${count === 1 ? 'file' : 'files'})</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15"></line>
+            <circle cx="18" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M18 9a9 9 0 0 1-9 9"></path>
+          </svg>
+          <span>Thay đổi tập tin</span>
+          <span class="opencode-git-branch-tag">${escapeHtml(branch)}</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--v2-text-text-muted);">(${count})</span>
         </div>
-        <button class="opencode-git-close-btn" id="opencode-git-close-btn">✕</button>
+        <button class="opencode-git-close-btn" id="opencode-git-close-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
       <div class="opencode-git-drawer-subbar">
         <span class="opencode-git-dir-text" title="${escapeHtml(status.directory)}">${escapeHtml(status.directory)}</span>
         <div class="opencode-git-actions">
           <button class="opencode-git-btn opencode-git-btn-secondary" id="opencode-git-refresh-btn">
-            🔄 Làm mới
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path></svg>
+            Làm mới
           </button>
           ${count > 0 ? `
             <button class="opencode-git-btn opencode-git-btn-danger" id="opencode-git-revert-all-btn">
-              ↺ Hoàn tác tất cả
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              Hoàn tác tất cả
             </button>
           ` : ''}
         </div>
@@ -2178,8 +2244,8 @@
     }
 
     container.style.display = 'block';
-    container.innerHTML = '<div style="padding: 10px; color: #a1a1aa; font-size: 11px;">⏳ Đang tải diff...</div>';
-    btn.innerText = 'Đóng diff';
+    container.innerHTML = '<div style="padding: 10px; color: var(--v2-text-text-muted); font-size: 11px;">Đang tải diff...</div>';
+    btn.innerText = 'Đóng';
 
     try {
       const dir = await getActiveProjectDirectory();
@@ -2198,7 +2264,7 @@
 
   function renderDiffHtml(diffText) {
     if (!diffText || !diffText.trim()) {
-      return '<div style="padding: 12px; color: #71717a; font-style: italic; font-size: 11px;">Không có thay đổi nội dung văn bản.</div>';
+      return '<div style="padding: 12px; color: var(--v2-text-text-muted); font-style: italic; font-size: 11px;">Không có thay đổi nội dung văn bản.</div>';
     }
     const lines = diffText.split('\n');
     let html = '<div class="opencode-diff-box">';
@@ -2244,7 +2310,7 @@
   }
 
   async function revertAllFiles() {
-    if (!confirm('⚠️ CẢNH BÁO: Bạn sắp hoàn tác TẤT CẢ các file bị sửa hoặc tạo mới trong toàn bộ dự án!\n\nBạn có chắc chắn 100% muốn tiếp tục?')) return;
+    if (!confirm('CẢNH BÁO: Bạn sắp hoàn tác TẤT CẢ các file bị sửa hoặc tạo mới trong toàn bộ dự án!\n\nBạn có chắc chắn muốn tiếp tục?')) return;
 
     try {
       const dir = await getActiveProjectDirectory();
