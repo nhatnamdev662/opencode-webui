@@ -1,19 +1,16 @@
-// OpenCode WebUI Native Suite v5.0
-// 1. Provider & Model Manager:
-//    - Add custom OpenAI-compatible or official providers directly into OpenCode config!
-//    - Manage API Key, Base URL, Model IDs.
-//    - Fast, cached, 0ms latency UI.
-// 2. Session Timeline & Time-Machine:
-//    - Instant loading, cached history.
-//    - Turn-by-turn rollback.
-// 3. Multi-Session Split Monitor:
-//    - Dual session view.
+// OpenCode WebUI Native Suite v5.1
+// Tích hợp trực tiếp với Settings Dialog gốc của OpenCode:
+// - Nút "Providers": Kích hoạt chuẩn xác cửa sổ Settings > Providers của chính OpenCode!
+// - Tận dụng 100% UI, Form kết nối, Validation và cơ chế lưu của OpenCode gốc.
+// - Nút "Files": Mở File Tree / Review của OpenCode gốc.
+// - Nút "Timeline": Xem lịch sử và Rollback turn.
+// - Nút "Split": Giám sát song song 2 phiên.
 
 (function() {
   'use strict';
 
   const STYLE = document.createElement('style');
-  STYLE.id = 'opencode-v5-suite-style';
+  STYLE.id = 'opencode-v51-suite-style';
   STYLE.textContent = `
     .opencode-suite-toolbar {
       display: inline-flex;
@@ -122,82 +119,6 @@
       flex: 1;
       overflow-y: auto;
       padding: 16px 18px;
-    }
-
-    /* Provider Manager Forms */
-    .ops-form-group {
-      margin-bottom: 14px;
-    }
-    .ops-label {
-      display: block;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--v2-text-text-faint, #8b949e);
-      margin-bottom: 5px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-    .ops-input {
-      width: 100%;
-      background: var(--v2-background-bg-deep, #0d1117);
-      border: 1px solid var(--border-subtle, rgba(128,128,128,0.25));
-      border-radius: 6px;
-      padding: 7px 12px;
-      font-size: 12.5px;
-      color: var(--v2-text-text-base, #e6edf3);
-      outline: none;
-      font-family: monospace;
-      transition: border-color 0.15s ease;
-    }
-    .ops-input:focus {
-      border-color: #58a6ff;
-    }
-    .ops-textarea {
-      width: 100%;
-      min-height: 80px;
-      background: var(--v2-background-bg-deep, #0d1117);
-      border: 1px solid var(--border-subtle, rgba(128,128,128,0.25));
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 12px;
-      color: var(--v2-text-text-base, #e6edf3);
-      outline: none;
-      font-family: monospace;
-      resize: vertical;
-    }
-    .ops-textarea:focus {
-      border-color: #58a6ff;
-    }
-    .ops-btn-save-prov {
-      padding: 6px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      background: #238636;
-      border: 1px solid #2ea043;
-      border-radius: 6px;
-      color: #fff;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .ops-btn-save-prov:hover {
-      background: #2ea043;
-    }
-    .ops-configured-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 16px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border-subtle, rgba(128,128,128,0.15));
-    }
-    .ops-configured-item {
-      background: var(--v2-background-bg-deep, #0d1117);
-      border: 1px solid var(--border-subtle, rgba(128,128,128,0.15));
-      border-radius: 8px;
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
     }
 
     /* Timeline Cards */
@@ -395,196 +316,40 @@
     }
   }
 
-  // 3. Provider & Model Configuration Center (TÍCH HỢP THÊM PROVIDER TRỰC TIẾP VÀO OPENCODE)
-  async function openProviderConfig() {
+  // 3. Providers: TÍCH HỢP CHUNG TRỰC TIẾP VÀO CỬA SỔ SETTINGS CỦA OPENCODE!
+  function openOpenCodeSettingsProviders() {
     closeDialogs();
 
-    const overlay = document.createElement('div');
-    overlay.className = 'ops-v5-backdrop';
-    overlay.innerHTML = `
-      <div class="ops-v5-modal" style="width: 800px; max-width: 92%; height: 82vh;">
-        <div class="ops-v5-header">
-          <div class="ops-v5-title">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><use href="#opencode-v2-icon-status"></use></svg>
-            OpenCode Provider & Model Manager
-          </div>
-          <button class="ops-v5-close" title="Close (Esc)">✕</button>
-        </div>
-        <div class="ops-v5-body">
-          <div style="background: var(--v2-background-bg-deep, #0d1117); border: 1px solid rgba(128,128,128,0.2); border-radius: 8px; padding: 16px;">
-            <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f0f6fc;">
-              ➕ Add / Update Custom AI Provider (OpenAI Compatible)
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-              <div class="ops-form-group">
-                <label class="ops-label">Provider ID / Name</label>
-                <input type="text" class="ops-input" id="ops-prov-id" placeholder="e.g. openrouter, deepseek, my-proxy" />
-              </div>
-              <div class="ops-form-group">
-                <label class="ops-label">Base URL (API Endpoint)</label>
-                <input type="text" class="ops-input" id="ops-prov-url" placeholder="e.g. https://openrouter.ai/api/v1" />
-              </div>
-            </div>
-            <div class="ops-form-group">
-              <label class="ops-label">API Key (Stored safely in opencode.json)</label>
-              <input type="password" class="ops-input" id="ops-prov-key" placeholder="sk-..." />
-            </div>
-            <div class="ops-form-group">
-              <label class="ops-label">Models (One per line or comma-separated)</label>
-              <textarea class="ops-textarea" id="ops-prov-models" placeholder="deepseek/deepseek-chat&#10;anthropic/claude-3.5-sonnet&#10;meta-llama/llama-3.1-70b"></textarea>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
-              <button class="ops-btn-save-prov" id="ops-btn-submit-prov">Save Provider to OpenCode</button>
-            </div>
-          </div>
+    // 1. Dispatch keyboard event Ctrl+, to trigger OpenCode's native settings
+    const ev = new KeyboardEvent('keydown', {
+      key: ',',
+      code: 'Comma',
+      keyCode: 188,
+      which: 188,
+      ctrlKey: true,
+      metaKey: false,
+      bubbles: true,
+      cancelable: true
+    });
+    window.dispatchEvent(ev);
+    document.dispatchEvent(ev);
 
-          <div class="ops-configured-list">
-            <div style="font-size: 12.5px; font-weight: 600; color: #c9d1d9; margin-bottom: 6px;">
-              Configured Providers in OpenCode:
-            </div>
-            <div id="ops-configured-items-container">
-              <div style="font-size: 12px; color: #888;">Loading configured providers...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    const closeBtn = overlay.querySelector('.ops-v5-close');
-    const close = () => overlay.remove();
-    closeBtn.addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    const provIdInput = overlay.querySelector('#ops-prov-id');
-    const provUrlInput = overlay.querySelector('#ops-prov-url');
-    const provKeyInput = overlay.querySelector('#ops-prov-key');
-    const provModelsInput = overlay.querySelector('#ops-prov-models');
-    const submitBtn = overlay.querySelector('#ops-btn-submit-prov');
-    const container = overlay.querySelector('#ops-configured-items-container');
-
-    async function loadConfigured() {
-      try {
-        const cfg = await (await fetch('/config')).json();
-        const providers = cfg.provider || {};
-        const keys = Object.keys(providers);
-
-        if (keys.length === 0) {
-          container.innerHTML = '<div style="font-size: 12px; color: #888;">No custom providers configured yet.</div>';
+    // 2. Automatically select the "Providers" tab inside OpenCode Settings dialog
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const dialog = document.querySelector('dialog, [role="dialog"]');
+      if (dialog) {
+        const tabs = Array.from(dialog.querySelectorAll('[role="tab"]'));
+        const provTab = tabs.find(t => t.innerText.trim() === 'Providers');
+        if (provTab) {
+          provTab.click();
+          clearInterval(interval);
           return;
         }
-
-        container.innerHTML = '';
-        keys.forEach(k => {
-          const item = providers[k];
-          const mCount = Object.keys(item.models || {}).length;
-          const div = document.createElement('div');
-          div.className = 'ops-configured-item';
-          div.innerHTML = `
-            <div>
-              <div style="font-size: 13px; font-weight: 600; color: #f0f6fc;">${escapeHtml(k)}</div>
-              <div style="font-size: 11px; color: #8b949e; font-family: monospace;">
-                ${escapeHtml(item.options?.baseURL || 'Default Endpoint')} · ${mCount} models
-              </div>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="ops-btn-fill" style="padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid rgba(128,128,128,0.3); border-radius: 5px; color: #58a6ff; cursor: pointer;">
-                Edit
-              </button>
-              <button class="ops-btn-del" style="padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid rgba(248,81,73,0.3); border-radius: 5px; color: #f85149; cursor: pointer;">
-                Remove
-              </button>
-            </div>
-          `;
-
-          div.querySelector('.ops-btn-fill').addEventListener('click', () => {
-            provIdInput.value = k;
-            provUrlInput.value = item.options?.baseURL || '';
-            provKeyInput.value = item.options?.apiKey || '';
-            provModelsInput.value = Object.keys(item.models || {}).join('\n');
-            provIdInput.scrollIntoView({ behavior: 'smooth' });
-          });
-
-          div.querySelector('.ops-btn-del').addEventListener('click', async () => {
-            if (!confirm(`Remove provider "${k}" from OpenCode config?`)) return;
-            const updated = Object.assign({}, cfg);
-            delete updated.provider[k];
-            await saveConfig(updated);
-            loadConfigured();
-          });
-
-          container.appendChild(div);
-        });
-      } catch (err) {
-        container.innerHTML = `<div style="color:#f85149;font-size:12px;">Error: ${err.message}</div>`;
       }
-    }
-
-    async function saveConfig(cfg) {
-      const resp = await fetch('/config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cfg)
-      });
-      return resp.ok;
-    }
-
-    submitBtn.addEventListener('click', async () => {
-      const id = provIdInput.value.trim();
-      const url = provUrlInput.value.trim();
-      const key = provKeyInput.value.trim();
-      const modelsRaw = provModelsInput.value.trim();
-
-      if (!id) return alert('Provider ID is required.');
-      if (!url) return alert('Base URL is required.');
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Saving to OpenCode...';
-
-      try {
-        const curCfg = await (await fetch('/config')).json();
-        curCfg.provider = curCfg.provider || {};
-
-        const modelList = modelsRaw.split(/[\n,]+/).map(m => m.trim()).filter(Boolean);
-        const modelsObj = {};
-        modelList.forEach(m => {
-          modelsObj[m] = {
-            name: m,
-            modalities: { input: ["text", "image"], output: ["text"] }
-          };
-        });
-
-        curCfg.provider[id] = {
-          name: id,
-          npm: "@ai-sdk/openai-compatible",
-          options: {
-            baseURL: url,
-            ...(key ? { apiKey: key } : {})
-          },
-          models: modelsObj
-        };
-
-        const ok = await saveConfig(curCfg);
-        if (ok) {
-          alert(`Provider "${id}" added to OpenCode successfully!`);
-          provIdInput.value = '';
-          provUrlInput.value = '';
-          provKeyInput.value = '';
-          provModelsInput.value = '';
-          loadConfigured();
-        } else {
-          alert('Failed to update config.');
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Save Provider to OpenCode';
-      }
-    });
-
-    loadConfigured();
+      if (attempts > 15) clearInterval(interval);
+    }, 50);
   }
 
   // 4. Split View
@@ -650,26 +415,26 @@
 
     bar.innerHTML = `
       <button type="button" class="opencode-suite-btn" id="ops-btn-files" title="Open workspace file tree">
-        <svg viewBox="0 0 16 16" fill="none"><use href="#opencode-v2-icon-filetree"></use></svg>
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-filetree"></use></svg>
         Files
       </button>
       <button type="button" class="opencode-suite-btn" id="ops-btn-timeline" title="Turn history & rollback">
-        <svg viewBox="0 0 16 16" fill="none"><use href="#opencode-v2-icon-reset"></use></svg>
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-reset"></use></svg>
         Timeline
       </button>
-      <button type="button" class="opencode-suite-btn" id="ops-btn-models" title="Add and configure AI providers & models">
-        <svg viewBox="0 0 16 16" fill="none"><use href="#opencode-v2-icon-status"></use></svg>
+      <button type="button" class="opencode-suite-btn" id="ops-btn-models" title="Open Settings > Providers to connect AI models">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-settings-gear"></use></svg>
         Providers
       </button>
       <button type="button" class="opencode-suite-btn" id="ops-btn-split" title="Side-by-side split view">
-        <svg viewBox="0 0 16 16" fill="none"><use href="#opencode-v2-icon-split"></use></svg>
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><use href="#opencode-v2-icon-split"></use></svg>
         Split
       </button>
     `;
 
     bar.querySelector('#ops-btn-files').addEventListener('click', toggleFiles);
     bar.querySelector('#ops-btn-timeline').addEventListener('click', openTimeline);
-    bar.querySelector('#ops-btn-models').addEventListener('click', openProviderConfig);
+    bar.querySelector('#ops-btn-models').addEventListener('click', openOpenCodeSettingsProviders);
     bar.querySelector('#ops-btn-split').addEventListener('click', toggleSplit);
 
     header.appendChild(bar);
@@ -696,5 +461,5 @@
     start();
   }
 
-  console.log('[OpenCode WebUI] Suite v5.0 ready');
+  console.log('[OpenCode WebUI] Suite v5.1 ready');
 })();
