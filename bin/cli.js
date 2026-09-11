@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
@@ -114,6 +114,214 @@ if (!isWebUI) {
       '.webmanifest': 'application/manifest+json'
     };
 
+    function runGit(cmd, cwd) {
+      return new Promise((resolve) => {
+        exec(cmd, { cwd, maxBuffer: 10 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+          resolve({
+            error: err ? err.message : null,
+            code: err ? err.code : 0,
+            stdout: stdout || '',
+            stderr: stderr || ''
+          });
+        });
+      });
+    }
+
+    function parseJsonBody(req) {
+      return new Promise((resolve) => {
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk;
+          if (body.length > 5 * 1024 * 1024) req.destroy();
+        });
+        req.on('end', () => {
+          try { resolve(JSON.parse(body || '{}')); } catch { resolve({}); }
+        });
+        req.on('error', () => resolve({}));
+      });
+    }
+
+    function sendJson(res, statusCode, data) {
+      const json = JSON.stringify(data);
+      res.writeHead(statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
+        'Access-Control-Allow-Headers': '*'
+      });
+      res.end(json);
+    }
+
+    async function handleExtensionApi(req, res, cleanUrl) {
+      try {
+        const parsedUrl = new URL(req.url, 'http://127.0.0.1');
+        const query = Object.fromEntries(parsedUrl.searchParams.entries());
+
+        if (cleanUrl === '/opencode-ext/git/status') {
+          const targetDir = path.resolve(query.directory || process.cwd());
+          const isGitRes = await runGit('git rev-parse --is-inside-work-tree', targetDir);
+          const isGit = !isGitRes.error && isGitRes.stdout.trim() === 'true';
+
+          if (!isGit) {
+            return sendJson(res, 200, {
+              isGit: false,
+              directory: targetDir,
+              branch: '',
+              files: [],
+              totalChanges: 0,
+              totalAdditions: 0,
+              totalDeletions: 0
+            });
+          }
+
+          const branchRes = await runGit('git branch --show-current', targetDir);
+          const branch = branchRes.stdout.trim() || 'HEAD';
+
+          const statusRes = await runGit('git -c core.quotepath=false status --porcelain=v1 -uall', targetDir);
+          const numstatRes = await runGit('git diff --numstat HEAD', targetDir);
+          const numstatMap = {};
+          numstatRes.stdout.split('\n').filter(Boolean).forEach(line => {
+            const parts = line.split('\t');
+            if (parts.length >= 3) {
+              const adds = parseInt(parts[0], 10) || 0;
+              const dels = parseInt(parts[1], 10) || 0;
+              const filePath = parts.slice(2).join('\t').trim();
+              numstatMap[filePath] = { additions: adds, deletions: dels };
+            }
+          });
+
+          let totalAdditions = 0;
+          let totalDeletions = 0;
+          const files = [];
+
+          const lines = statusRes.stdout.split('\n').filter(Boolean);
+          for (const line of lines) {
+            const x = line[0];
+            const y = line[1];
+            let filePath = line.substring(3).trim();
+            if (filePath.startsWith('"') && filePath.endsWith('"')) {
+              filePath = filePath.slice(1, -1);
+            }
+
+            let status = 'modified';
+            if (x === '?' || y === '?') status = 'untracked';
+            else if (x === 'D' || y === 'D') status = 'deleted';
+            else if (x === 'A' || y === 'A') status = 'added';
+            else if (x === 'R' || y === 'R') status = 'renamed';
+
+            let additions = numstatMap[filePath]?.additions || 0;
+            let deletions = numstatMap[filePath]?.deletions || 0;
+
+            if (status === 'untracked') {
+              try {
+                const fullPath = path.join(targetDir, filePath);
+                if (fs.existsSync(fullPath) && !fs.statSync(fullPath).isDirectory()) {
+                  const content = fs.readFileSync(fullPath, 'utf8');
+                  additions = content.split('\n').length;
+                }
+              } catch {}
+            }
+
+            totalAdditions += additions;
+            totalDeletions += deletions;
+
+            files.push({
+              file: filePath,
+              status,
+              staged: x !== ' ' && x !== '?',
+              rawCode: x + y,
+              additions,
+              deletions
+            });
+          }
+
+          return sendJson(res, 200, {
+            isGit: true,
+            directory: targetDir,
+            branch,
+            files,
+            totalChanges: files.length,
+            totalAdditions,
+            totalDeletions
+          });
+        }
+
+        if (cleanUrl === '/opencode-ext/git/diff') {
+          const targetDir = path.resolve(query.directory || process.cwd());
+          const file = query.file;
+
+          if (file) {
+            const fullPath = path.join(targetDir, file);
+            const st = await runGit(`git -c core.quotepath=false status --porcelain -- "${file}"`, targetDir);
+            const code = st.stdout.trim().slice(0, 2);
+
+            let diffOutput = '';
+            if (code.includes('?')) {
+              const diffRes = await runGit(`git -c core.quotepath=false diff --no-index -- /dev/null "${file}"`, targetDir);
+              diffOutput = diffRes.stdout || '';
+            } else {
+              const diffRes = await runGit(`git -c core.quotepath=false diff HEAD -- "${file}"`, targetDir);
+              diffOutput = diffRes.stdout || '';
+            }
+
+            return sendJson(res, 200, { file, diff: diffOutput });
+          } else {
+            const diffRes = await runGit('git -c core.quotepath=false diff HEAD', targetDir);
+            return sendJson(res, 200, { diff: diffRes.stdout || '' });
+          }
+        }
+
+        if (cleanUrl === '/opencode-ext/git/revert' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          const targetDir = path.resolve(body.directory || process.cwd());
+
+          if (body.all) {
+            await runGit('git checkout HEAD -- .', targetDir);
+            await runGit('git clean -fd', targetDir);
+            return sendJson(res, 200, { ok: true, message: 'Đã hoàn tác toàn bộ thay đổi dự án.' });
+          }
+
+          if (body.file) {
+            const file = body.file;
+            const fullPath = path.join(targetDir, file);
+            const st = await runGit(`git -c core.quotepath=false status --porcelain -- "${file}"`, targetDir);
+            const code = st.stdout.trim().slice(0, 2);
+
+            if (code.includes('?')) {
+              try {
+                if (fs.existsSync(fullPath)) {
+                  if (fs.statSync(fullPath).isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
+                  else fs.unlinkSync(fullPath);
+                }
+              } catch (e) {
+                return sendJson(res, 500, { ok: false, error: e.message });
+              }
+            } else {
+              await runGit(`git checkout HEAD -- "${file}"`, targetDir);
+            }
+            return sendJson(res, 200, { ok: true, message: `Đã hoàn tác: ${file}` });
+          }
+
+          return sendJson(res, 400, { ok: false, error: 'Thiếu tham số file hoặc all' });
+        }
+
+        if (cleanUrl === '/opencode-ext/git/init' && req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          const targetDir = path.resolve(body.directory || process.cwd());
+          const initRes = await runGit('git init', targetDir);
+          if (initRes.error) {
+            return sendJson(res, 500, { ok: false, error: initRes.error });
+          }
+          return sendJson(res, 200, { ok: true, message: 'Đã khởi tạo Git repository thành công.' });
+        }
+
+        return sendJson(res, 404, { error: 'Not found' });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     const server = http.createServer((req, res) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -126,6 +334,12 @@ if (!isWebUI) {
       }
 
       const cleanUrl = req.url.split('?')[0];
+
+      // Extension API
+      if (cleanUrl.startsWith('/opencode-ext/')) {
+        handleExtensionApi(req, res, cleanUrl);
+        return;
+      }
 
       // Static file serving với Cache-Control & Gzip Compression
       let localFilePath = path.join(staticDir, cleanUrl === '/' ? 'index.html' : cleanUrl);
