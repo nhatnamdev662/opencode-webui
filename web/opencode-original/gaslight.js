@@ -1296,16 +1296,37 @@
     }
   }
 
+  function findContextButton() {
+    const svgCircle = document.querySelector('svg[data-component*="progress-circle"]');
+    if (svgCircle) return svgCircle.closest('button');
+
+    const dotsUse = document.querySelector('use[*|href*="dots"], use[href*="dots"]');
+    if (dotsUse) {
+      const dotsBtn = dotsUse.closest('button');
+      const prevTrigger = dotsBtn?.previousElementSibling;
+      const btnInPrev = prevTrigger?.querySelector('button') || prevTrigger;
+      if (btnInPrev && btnInPrev !== dotsBtn) return btnInPrev;
+    }
+
+    return document.querySelector('button[aria-label*="context" i], button[aria-label*="ngữ cảnh" i], button[aria-label*="mức dùng" i]');
+  }
+
+  function findExportButton() {
+    const downloadUse = document.querySelector('use[*|href*="download"], use[href*="download"]');
+    if (downloadUse) return downloadUse.closest('button');
+
+    const buttons = Array.from(document.querySelectorAll('button'));
+    return buttons.find(b => {
+      const txt = (b.innerText || '').toLowerCase().trim();
+      return txt.includes('export') || txt.includes('xuất');
+    });
+  }
+
   async function injectContextPanelCompactBtn() {
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
 
-    const buttons = Array.from(document.querySelectorAll('button'));
-    const exportBtn = buttons.find(b => {
-      const txt = (b.innerText || '').toLowerCase().trim();
-      const href = b.querySelector('use')?.getAttribute('href') || '';
-      return txt.includes('export session') || txt.includes('xuất phiên') || txt.includes('xuat phien') || href.includes('download');
-    });
+    const exportBtn = findExportButton();
     if (!exportBtn) return;
 
     const parent = exportBtn.parentElement;
@@ -1346,13 +1367,13 @@
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
 
-    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
+    const contextUsageBtn = findContextButton();
     if (!contextUsageBtn) return;
     const targetParent = contextUsageBtn.parentElement;
     const container = targetParent?.parentElement;
     if (!container || container.querySelector('#opencode-btn-compact-header')) return;
 
-    const isVi = document.documentElement.lang?.includes('vi') || !!document.querySelector('button[aria-label="Tùy chọn khác"]') || !!document.querySelector('button[aria-label*="ngữ cảnh" i]');
+    const isVi = document.documentElement.lang?.includes('vi') || !!document.querySelector('button[aria-label*="tùy chọn" i]') || !!document.querySelector('button[aria-label*="ngữ cảnh" i]');
     const tip = isVi ? 'Nén ngữ cảnh (Compact session)' : 'Compact session';
 
     const btn = document.createElement('button');
@@ -1465,7 +1486,7 @@
     `;
 
     // 1. Chèn vào Header cạnh nút View context usage
-    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
+    const contextUsageBtn = findContextButton();
     if (contextUsageBtn) {
       const targetParent = contextUsageBtn.parentElement;
       const headerContainer = targetParent?.parentElement;
