@@ -117,6 +117,59 @@
       background: rgba(255, 255, 255, 0.08);
       color: #e5e5e5;
     }
+    .opencode-context-badge-prompt {
+      margin-right: 6px;
+      height: 26px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .opencode-btn-compact {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      font-family: inherit;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .opencode-btn-compact:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #7dd3fc;
+    }
+    .opencode-btn-compact:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .opencode-panel-compact-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-right: 8px;
+    }
+    .opencode-panel-compact-btn:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #7dd3fc;
+    }
 
     /* Popover Context HUD */
     .opencode-context-popover {
@@ -1028,11 +1081,11 @@
     contextPopoverEl.style.left = left + 'px';
   }
 
-  function toggleContextPopover(session) {
+  function toggleContextPopover(session, onlineData) {
     isContextPopoverOpen = !isContextPopoverOpen;
     if (isContextPopoverOpen) {
       const pop = getContextPopover();
-      renderContextPopoverContent(session);
+      renderContextPopoverContent(session, onlineData);
       positionContextPopover();
       pop.classList.add('show');
       document.getElementById('opencode-context-badge')?.classList.add('active');
@@ -1047,22 +1100,114 @@
     document.getElementById('opencode-context-badge')?.classList.remove('active');
   }
 
-  function renderContextPopoverContent(session) {
-    if (!contextPopoverEl) return;
-    const tokens = session?.tokens || {};
-    const input = tokens.input || 0;
-    const output = tokens.output || 0;
-    const reasoning = tokens.reasoning || 0;
-    const cacheRead = tokens.cache?.read || 0;
+  let providersCache = null;
+  async function fetchOnlineProviders() {
+    if (providersCache) return providersCache;
+    try {
+      const res = await originalFetch('/config/providers');
+      if (res.ok) {
+        const data = await res.json();
+        providersCache = data.providers || [];
+      }
+    } catch {}
+    return providersCache || [];
+  }
+
+  // Lấy dữ liệu ngữ cảnh online chuẩn xác 100% từ provider, tuyệt đối không hardcode
+  function getOnlineModelLimit(providers, providerID, modelID) {
+    if (!providers || !providerID || !modelID) return null;
+    const prov = providers.find(p => p.id === providerID);
+    const mod = prov?.models?.[modelID];
+    if (mod?.limit?.context && mod.limit.context > 0) {
+      return {
+        limit: mod.limit.context,
+        modelName: mod.name || modelID
+      };
+    }
+    return null; // Không có dữ liệu online chính xác -> trả về null để ẩn
+  }
+
+  async function compactSession(session, btn) {
+    if (!session?.id || !session?.model?.providerID || !session?.model?.id) {
+      showToast('Không có thông tin model để nén', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<span>⏳ Đang nén ngữ cảnh...</span>';
+
+    try {
+      const resp = await originalFetch('/session/' + encodeURIComponent(session.id) + '/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerID: session.model.providerID,
+          modelID: session.model.id
+        })
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi server: ' + resp.status);
+      }
+
+      showToast('✓ Đã nén ngữ cảnh thành công!', 'success');
+      closeContextPopover();
+
+      // Cập nhật lại session
+      const updated = await originalFetch('/session/' + encodeURIComponent(session.id)).then(r => r.json());
+      window.__OPENCODE_SESSIONS__[session.id] = updated;
+      renderContextHUD();
+    } catch (e) {
+      showToast('Lỗi khi nén: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
+  }
+
+  function getActiveContextTokens(session) {
+    let lastTokens = null;
+    for (const [, entry] of partCache) {
+      const m = entry.message;
+      if (m?.info?.role === 'assistant' && m?.info?.tokens?.total) {
+        lastTokens = m.info.tokens;
+      }
+    }
+
+    if (lastTokens) {
+      const input = lastTokens.input || 0;
+      const cacheRead = lastTokens.cache?.read || 0;
+      const output = lastTokens.output || 0;
+      const reasoning = lastTokens.reasoning || 0;
+      const total = input + cacheRead + output;
+      return { input, cacheRead, output, reasoning, total, isTurn: true };
+    }
+
+    const t = session?.tokens || {};
+    const input = t.input || 0;
+    const cacheRead = t.cache?.read || 0;
+    const output = t.output || 0;
+    const reasoning = t.reasoning || 0;
     const total = input + output;
-    const limit = 200000;
-    const pct = Math.min(100, Math.round((total / limit) * 100));
+    return { input, cacheRead, output, reasoning, total, isTurn: false };
+  }
 
-    const inputPct = Math.min(100, (input / limit) * 100);
-    const outputPct = Math.min(100, (output / limit) * 100);
-    const reasoningPct = Math.min(100, (reasoning / limit) * 100);
+  function renderContextPopoverContent(session, onlineData) {
+    if (!contextPopoverEl || !onlineData) return;
+    const modelName = onlineData.modelName;
+    const limit = onlineData.limit;
+    const active = getActiveContextTokens(session);
 
-    const modelName = session?.model?.id || 'Unknown Model';
+    const total = active.total || 0;
+    const pct = Math.min(100, Math.max(1, Math.round((total / limit) * 100)));
+
+    const inputPct = Math.min(100, (active.input / limit) * 100);
+    const outputPct = Math.min(100, (active.output / limit) * 100);
+    const cachePct = Math.min(100, (active.cacheRead / limit) * 100);
+
+    const cumTokens = session?.tokens || {};
 
     contextPopoverEl.innerHTML = `
       <div class="context-pop-header">
@@ -1072,52 +1217,82 @@
       <div class="context-pop-body">
         <div class="context-progress-wrap">
           <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
-            <span>Sử dụng: <b style="color:#f0f6fc">${formatTokens(total)}</b> / ${formatTokens(limit)}</span>
+            <span>Ngữ cảnh: <b style="color:#f0f6fc">${formatTokens(total)}</b> / ${formatTokens(limit)}</span>
             <span style="font-weight:600; color:${pct > 85 ? '#f87171' : pct > 60 ? '#f59e0b' : '#46c764'}">${pct}%</span>
           </div>
           <div class="context-progress-bar">
-            <div class="context-progress-segment input" style="width:${inputPct}%;" title="Input: ${input.toLocaleString()}"></div>
-            <div class="context-progress-segment output" style="width:${outputPct}%;" title="Output: ${output.toLocaleString()}"></div>
-            <div class="context-progress-segment reasoning" style="width:${reasoningPct}%;" title="Reasoning: ${reasoning.toLocaleString()}"></div>
+            <div class="context-progress-segment input" style="width:${Math.max(2, inputPct)}%;" title="Input Prompt: ${active.input.toLocaleString()}"></div>
+            <div class="context-progress-segment reasoning" style="width:${cachePct}%; background:#38bdf8;" title="Cache Read: ${active.cacheRead.toLocaleString()}"></div>
+            <div class="context-progress-segment output" style="width:${Math.max(1, outputPct)}%;" title="Output: ${active.output.toLocaleString()}"></div>
           </div>
           <div class="context-progress-legend">
-            <span class="legend-item"><span class="legend-dot" style="background:#7698fd"></span>Input</span>
-            <span class="legend-item"><span class="legend-dot" style="background:#46c764"></span>Output</span>
-            <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>Reasoning</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#7698fd"></span>Prompt (${formatTokens(active.input)})</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span>Cache (${formatTokens(active.cacheRead)})</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#46c764"></span>Output (${formatTokens(active.output)})</span>
           </div>
         </div>
 
         <div class="context-grid">
           <div class="context-metric">
-            <span class="context-metric-label">Input Tokens</span>
-            <span class="context-metric-val">${input.toLocaleString()}</span>
-          </div>
-          <div class="context-metric">
-            <span class="context-metric-label">Output Tokens</span>
-            <span class="context-metric-val">${output.toLocaleString()}</span>
-          </div>
-          <div class="context-metric">
-            <span class="context-metric-label">Reasoning Tokens</span>
-            <span class="context-metric-val">${reasoning.toLocaleString()}</span>
+            <span class="context-metric-label">Prompt Tokens</span>
+            <span class="context-metric-val">${active.input.toLocaleString()}</span>
           </div>
           <div class="context-metric">
             <span class="context-metric-label">Cache Read</span>
-            <span class="context-metric-val" style="color:#46c764">${cacheRead.toLocaleString()}</span>
+            <span class="context-metric-val" style="color:#38bdf8">${active.cacheRead.toLocaleString()}</span>
+          </div>
+          <div class="context-metric">
+            <span class="context-metric-label">Turn Output</span>
+            <span class="context-metric-val" style="color:#46c764">${active.output.toLocaleString()}</span>
+          </div>
+          <div class="context-metric">
+            <span class="context-metric-label">Tổng tích lũy</span>
+            <span class="context-metric-val" style="color:#94a3b8">${formatTokens(cumTokens.input || 0)}</span>
           </div>
         </div>
+
+        <button id="opencode-btn-compact-context" class="opencode-btn-compact" type="button">
+          ⚡ Nén ngữ cảnh (Compact Session)
+        </button>
       </div>
     `;
+
+    const compactBtn = contextPopoverEl.querySelector('#opencode-btn-compact-context');
+    if (compactBtn) {
+      compactBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        compactSession(session, compactBtn);
+      });
+    }
+  }
+
+  function injectContextPanelCompactBtn(session) {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const exportBtn = buttons.find(b => b.innerText?.toLowerCase().includes('export session'));
+    if (!exportBtn) return;
+
+    const parent = exportBtn.parentElement;
+    if (!parent || parent.querySelector('#opencode-panel-compact-btn')) return;
+
+    const compactBtn = document.createElement('button');
+    compactBtn.id = 'opencode-panel-compact-btn';
+    compactBtn.className = 'opencode-panel-compact-btn';
+    compactBtn.type = 'button';
+    compactBtn.innerHTML = '⚡ <span>Nén ngữ cảnh</span>';
+
+    compactBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      compactSession(session, compactBtn);
+    });
+
+    parent.insertBefore(compactBtn, exportBtn);
   }
 
   async function renderContextHUD() {
     const sessionID = getCurrentSessionID();
     if (!sessionID) return;
 
-    // Tìm vị trí nút View context usage trên header session
-    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
-    if (!contextUsageBtn) return;
-    const targetParent = contextUsageBtn.parentElement;
-    if (!targetParent) return;
+    const providers = await fetchOnlineProviders();
 
     let session = window.__OPENCODE_SESSIONS__?.[sessionID];
     if (!session || !session.tokens) {
@@ -1130,41 +1305,86 @@
       } catch {}
     }
 
-    const tokens = session?.tokens || {};
-    const input = tokens.input || 0;
-    const output = tokens.output || 0;
-    const total = input + output;
-    const limit = 200000;
-    const pct = Math.min(100, Math.round((total / limit) * 100));
+    // Luôn chèn nút Nén ngữ cảnh vào Context panel nếu panel đang mở
+    injectContextPanelCompactBtn(session);
+
+    // KIỂM TRA SỐ LIỆU ONLINE CHÍNH XÁC TỪ PROVIDER
+    const onlineData = getOnlineModelLimit(providers, session?.model?.providerID, session?.model?.id);
+
+    // NẾU MODEL KHÔNG CÓ SỐ LIỆU NGỮ CẢNH ONLINE CHÍNH XÁC: ẨN HOÀN TOÀN BADGE, ĐỂ MẶC ĐỊNH SẠCH SẼ
+    if (!onlineData) {
+      document.getElementById('opencode-context-badge')?.remove();
+      document.getElementById('opencode-context-badge-prompt')?.remove();
+      closeContextPopover();
+      return;
+    }
+
+    const limit = onlineData.limit;
+    const active = getActiveContextTokens(session);
+    const total = active.total || 0;
+    const pct = Math.min(100, Math.max(1, Math.round((total / limit) * 100)));
 
     let dotClass = '';
     if (pct > 85) dotClass = 'danger';
     else if (pct > 60) dotClass = 'warning';
 
-    let badge = document.getElementById('opencode-context-badge');
-    if (!badge) {
-      badge = document.createElement('button');
-      badge.id = 'opencode-context-badge';
-      badge.className = 'opencode-context-badge';
-      badge.type = 'button';
-      badge.title = 'Click to inspect Context & Token usage';
-
-      badge.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleContextPopover(window.__OPENCODE_SESSIONS__?.[sessionID] || session);
-      });
-
-      targetParent.after(badge);
-    }
-
-    badge.innerHTML = `
+    const badgeContent = `
       <span class="context-badge-dot ${dotClass}"></span>
       <span>${formatTokens(total)}/${formatTokens(limit)}</span>
       <span class="context-badge-pct">${pct}%</span>
     `;
 
+    // 1. Chèn vào Header cạnh nút View context usage
+    const contextUsageBtn = document.querySelector('button[aria-label="View context usage"]');
+    if (contextUsageBtn) {
+      const targetParent = contextUsageBtn.parentElement;
+      const headerContainer = targetParent?.parentElement;
+      if (headerContainer) {
+        let badge = headerContainer.querySelector('#opencode-context-badge');
+        if (!badge) {
+          badge = document.createElement('button');
+          badge.id = 'opencode-context-badge';
+          badge.className = 'opencode-context-badge';
+          badge.type = 'button';
+          badge.title = 'Click to inspect Context & Token usage';
+
+          badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleContextPopover(window.__OPENCODE_SESSIONS__?.[sessionID] || session, onlineData);
+          });
+
+          targetParent.after(badge);
+        }
+        badge.innerHTML = badgeContent;
+      }
+    }
+
+    // 2. Chèn vào Input prompt bar trước nút Send
+    const sendBtn = document.querySelector('form button[aria-label="Send"]');
+    if (sendBtn) {
+      const sendParent = sendBtn.parentElement;
+      if (sendParent) {
+        let promptBadge = sendParent.querySelector('#opencode-context-badge-prompt');
+        if (!promptBadge) {
+          promptBadge = document.createElement('button');
+          promptBadge.id = 'opencode-context-badge-prompt';
+          promptBadge.className = 'opencode-context-badge opencode-context-badge-prompt';
+          promptBadge.type = 'button';
+          promptBadge.title = 'Click to inspect Context & Token usage';
+
+          promptBadge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleContextPopover(window.__OPENCODE_SESSIONS__?.[sessionID] || session, onlineData);
+          });
+
+          sendParent.insertBefore(promptBadge, sendBtn);
+        }
+        promptBadge.innerHTML = badgeContent;
+      }
+    }
+
     if (isContextPopoverOpen) {
-      renderContextPopoverContent(session);
+      renderContextPopoverContent(session, onlineData);
     }
   }
 
